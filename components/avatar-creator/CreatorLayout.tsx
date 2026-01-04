@@ -25,7 +25,7 @@ export function CreatorLayout({ children }: CreatorLayoutProps) {
         
         <AvatarCreatorHeader />
         
-        <main className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <main className="flex flex-col gap-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
            {children}
         </main>
       </div>

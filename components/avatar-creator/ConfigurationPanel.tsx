@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Lock, Upload, Image as ImageIcon, Camera } from "lucide-react"
+import { Lock, Upload, Image as ImageIcon, Camera, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -11,6 +11,38 @@ import { cn } from "@/lib/utils"
 
 export function ConfigurationPanel() {
   const [imageCount, setImageCount] = React.useState([1])
+  const [referenceImages, setReferenceImages] = React.useState<string[]>([])
+  const [background, setBackground] = React.useState<"white" | "green" | "custom">("white")
+  const [customBgImage, setCustomBgImage] = React.useState<string | null>(null)
+  
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const customBgInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      if (referenceImages.length >= 3) return;
+      
+      const file = e.target.files[0]
+      const imageUrl = URL.createObjectURL(file)
+      setReferenceImages([...referenceImages, imageUrl])
+      
+      // Reset input so same file can be selected again if needed
+      e.target.value = ''
+    }
+  }
+
+  const handleCustomBgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      const imageUrl = URL.createObjectURL(file)
+      setCustomBgImage(imageUrl)
+      setBackground("custom")
+    }
+  }
+
+  const removeImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index))
+  }
 
   return (
     <div className="space-y-8 p-6 rounded-xl border bg-card/50 backdrop-blur-sm">
@@ -21,19 +53,39 @@ export function ConfigurationPanel() {
           <Label className="text-base font-medium">Referenzbilder</Label>
           <div className="flex gap-1 text-muted-foreground">
              <div className="h-2 w-2 rounded-full bg-purple-500" />
-             <Lock className="h-3 w-3" />
-             <Lock className="h-3 w-3" />
           </div>
         </div>
         
         <div className="flex gap-3">
-           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 border-purple-500/50 shadow-sm transition-all hover:border-purple-500">
-             <img src="https://github.com/shadcn.png" alt="Reference" className="h-full w-full object-cover" />
-           </div>
+           {/* Render Uploaded Images */}
+           {referenceImages.map((img, idx) => (
+             <div key={idx} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 border-purple-500/50 shadow-sm group">
+               <img src={img} alt={`Reference ${idx + 1}`} className="h-full w-full object-cover" />
+               <button 
+                 onClick={() => removeImage(idx)} 
+                 className="absolute top-1 right-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-500"
+               >
+                  <X className="h-3 w-3" />
+               </button>
+             </div>
+           ))}
            
-           <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors cursor-not-allowed opacity-50">
-             <Lock className="h-6 w-6 text-muted-foreground" />
-           </div>
+           {/* Upload Button Placeholder (Only if < 3 images) */}
+           {referenceImages.length < 3 && (
+             <div 
+               onClick={() => fileInputRef.current?.click()}
+               className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors cursor-pointer hover:bg-muted/10"
+             >
+               <Upload className="h-6 w-6 text-muted-foreground" />
+               <input 
+                 type="file" 
+                 ref={fileInputRef} 
+                 className="hidden" 
+                 accept="image/*"
+                 onChange={handleFileChange}
+               />
+             </div>
+           )}
         </div>
       </div>
 
@@ -41,22 +93,64 @@ export function ConfigurationPanel() {
       <div className="space-y-4">
         <Label className="text-base font-medium">Hintergrund</Label>
         <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="w-full justify-start bg-white text-black hover:bg-white/90 border-0 ring-2 ring-white">
+          <Button 
+            variant={background === "white" ? "default" : "outline"} 
+            className={cn(
+               "w-full justify-start border-0 ring-2 ring-white hover:bg-white/90",
+               background === "white" ? "bg-white text-black" : "bg-transparent text-white hover:bg-white/10"
+            )}
+            onClick={() => setBackground("white")}
+          >
              Weißer Hintergrund
           </Button>
-          <Button variant="outline" className="w-full justify-start bg-green-900/20 text-green-500 border-green-900/50 relative overflow-hidden" disabled>
-             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-               <Lock className="h-4 w-4" />
-             </div>
+          <Button 
+            variant={background === "green" ? "default" : "outline"}
+            className={cn(
+              "w-full justify-start border-green-900/50 hover:bg-green-900/30",
+              background === "green" ? "bg-green-900/40 text-green-400 border-green-500" : "bg-green-900/20 text-green-500"
+            )}
+            onClick={() => setBackground("green")}
+          >
              Greenscreen
           </Button>
-          <Button variant="outline" className="w-full justify-start bg-muted/20 text-muted-foreground relative overflow-hidden h-auto py-2" disabled>
-             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-               <Lock className="h-4 w-4" />
-             </div>
-             <span className="truncate">Eigene Szenerie</span>
-          </Button>
+          <div className="w-full relative">
+             <Button 
+               variant={background === "custom" ? "default" : "outline"}
+               className={cn(
+                 "w-full justify-start hover:bg-muted/30",
+                 background === "custom" ? "bg-muted/40 text-white border-white" : "bg-muted/20 text-muted-foreground"
+               )}
+               onClick={() => customBgInputRef.current?.click()}
+             >
+                {customBgImage ? "Bild ändern" : "Eigene Szenerie"}
+             </Button>
+             <input 
+               type="file" 
+               ref={customBgInputRef} 
+               className="hidden" 
+               accept="image/*" 
+               onChange={handleCustomBgChange}
+             />
+          </div>
         </div>
+        
+        {/* Custom Background Preview */}
+        {background === "custom" && customBgImage && (
+           <div className="relative h-32 w-full overflow-hidden rounded-lg border border-muted-foreground/20">
+              <img src={customBgImage} alt="Custom Background" className="h-full w-full object-cover" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 h-6 w-6"
+                onClick={() => {
+                   setCustomBgImage(null)
+                   setBackground("white")
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+           </div>
+        )}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
@@ -84,7 +178,7 @@ export function ConfigurationPanel() {
        {/* Quantity Slider */}
        <div className="space-y-4">
         <div className="flex items-center justify-between">
-           <Label>Anzahl Bilder <span className="text-muted-foreground text-xs ml-2">(max 6 für Basic)</span></Label>
+           <Label>Anzahl Bilder</Label>
            <span className="text-sm text-muted-foreground">{imageCount[0]} / 40</span>
         </div>
         <Slider
@@ -98,11 +192,10 @@ export function ConfigurationPanel() {
 
       {/* Custom Prompt */}
       <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/10">
-         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
            Custom Prompt verwenden
-           <Lock className="h-3 w-3" />
          </div>
-         <Switch disabled />
+         <Switch />
       </div>
 
        {/* Actions */}

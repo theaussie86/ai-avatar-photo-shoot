@@ -56,33 +56,29 @@ export function SettingsModal() {
                  <span className="text-[9px] text-zinc-500">Dunkel</span>
                </div>
                
-               {/* Locked Themes */}
+               {/* Themes */}
                {[
                  { name: "Sunset", sub: "Dunkel", color: "from-orange-400 to-red-600" },
                  { name: "Ocean", sub: "Dunkel", color: "from-cyan-400 to-blue-600" },
                  { name: "Frost", sub: "Hell", color: "from-sky-300 to-blue-400" },
                  { name: "Sand", sub: "Hell", color: "from-yellow-200 to-amber-500" }
                ].map((theme) => (
-                 <div key={theme.name} className="flex flex-col items-center gap-1 opacity-50">
-                    <div className="h-12 w-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center relative relative">
-                      <Lock className="h-3 w-3 absolute top-1 right-1 text-zinc-600" />
+                 <div key={theme.name} className="flex flex-col items-center gap-1 cursor-pointer group">
+                    <div className="h-12 w-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center relative transition-all group-hover:border-zinc-600">
                       <div className={`h-6 w-6 rounded-full bg-gradient-to-br ${theme.color}`} />
                     </div>
-                    <span className="text-[10px] font-medium text-zinc-400">{theme.name}</span>
+                    <span className="text-[10px] font-medium text-zinc-400 group-hover:text-zinc-300">{theme.name}</span>
                     <span className="text-[9px] text-zinc-600">{theme.sub}</span>
                  </div>
                ))}
             </div>
-            <p className="text-xs text-zinc-500">
-              Weitere Themes sind nur mit Pro verfügbar.
-            </p>
           </div>
 
           <div className="pt-4 border-t border-zinc-800 space-y-4">
             <div className="space-y-1">
                <h4 className="text-sm font-semibold text-white">Account</h4>
                <p className="text-sm text-zinc-400">Angemeldet als: christoph@weissteiner-automation.com</p>
-               <p className="text-sm text-zinc-400">Plan: Avatar Creator Studio - Basic</p>
+               <p className="text-sm text-zinc-400">Plan: Avatar Creator Studio - MVP</p>
             </div>
             
             <Button variant="outline" className="w-full justify-center gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent">
