@@ -21,7 +21,13 @@ export async function updateGeminiApiKey(apiKey: string) {
 
   const { error } = await supabase
     .from("profiles")
-    .update({ gemini_api_key: encryptedKey })
+    .upsert({ 
+      id: user.id,
+      gemini_api_key: encryptedKey,
+      full_name: user.user_metadata?.full_name,
+      avatar_url: user.user_metadata?.avatar_url,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", user.id);
 
   if (error) {

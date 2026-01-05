@@ -25,6 +25,7 @@ describe('updateGeminiApiKey Server Action', () => {
     },
     from: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
   };
 
@@ -42,7 +43,10 @@ describe('updateGeminiApiKey Server Action', () => {
     expect(result).toEqual({ success: true });
     expect(encrypt).toHaveBeenCalledWith('new-api-key');
     expect(mockSupabase.from).toHaveBeenCalledWith('profiles');
-    expect(mockSupabase.update).toHaveBeenCalledWith({ gemini_api_key: 'encrypted:new-api-key' });
+    expect(mockSupabase.upsert).toHaveBeenCalledWith(expect.objectContaining({ 
+      id: mockUser.id,
+      gemini_api_key: 'encrypted:new-api-key' 
+    }));
     expect(mockSupabase.eq).toHaveBeenCalledWith('id', mockUser.id);
     expect(revalidatePath).toHaveBeenCalledWith('/');
   });
