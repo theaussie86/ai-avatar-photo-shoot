@@ -32,8 +32,32 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
       throw new Error("No Gemini API Key found in settings. Please add one in the Settings menu.");
   }
 
-  // 2. Create Collection Record
-  const { data: collection, error: collectionError } = await supabase
+  // 2. Get or Create Collection Record
+  let collection;
+
+  if (data.collectionId) {
+    // Verify ownership and existence
+    const { data: existingCollection, error: fetchError } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('id', data.collectionId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !existingCollection) {
+      throw new Error("Collection not found or access denied.");
+    }
+    
+    // Update status to processing if not already
+    await supabase
+      .from('collections')
+      .update({ status: 'processing' })
+      .eq('id', existingCollection.id);
+
+    collection = existingCollection;
+  } else {
+    // Create new
+    const { data: newCollection, error: collectionError } = await supabase
       .from('collections')
       .insert({
           user_id: user.id,
@@ -46,9 +70,11 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
       .select()
       .single();
 
-  if (collectionError) {
-      console.error("Collection error:", collectionError);
-      throw new Error("Failed to start generation session.");
+    if (collectionError) {
+        console.error("Collection error:", collectionError);
+        throw new Error("Failed to start generation session.");
+    }
+    collection = newCollection;
   }
 
   const genAI = new GoogleGenerativeAI(profile.gemini_api_key);
@@ -149,4 +175,78 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
           .eq('id', collection.id);
       throw error;
   }
+}
+
+export async function deleteCollectionAction(collectionId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // Verify ownership
+    const { data: collection } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', collectionId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!collection) {
+        throw new Error("Collection not found or access denied");
+    }
+
+    // 1. Get all images for this collection
+    const { data: images } = await supabase
+        .from('images')
+        .select('storage_path')
+        .eq('collection_id', collectionId);
+
+    if (images && images.length > 0) {
+        const filePaths = images.map(img => img.storage_path).filter(Boolean);
+        
+        if (filePaths.length > 0) {
+            // 2. Delete files from Storage
+            const { error: storageError } = await supabase
+                .storage
+                .from('generated_images')
+                .remove(filePaths);
+
+            if (storageError) {
+                console.error("Storage cleanup failed:", storageError);
+                // We proceed anyway to delete the DB records, or we could throw. 
+                // Usually best to try to clean up DB even if storage fails, or alert.
+            }
+        }
+    }
+
+    // 3. Delete files from 'folder' 
+    // (If there are any left-over files not in DB but in the folder matching collectionId)
+    // List files in collection folder just in case
+    const { data: folderFiles } = await supabase
+        .storage
+        .from('generated_images')
+        .list(collectionId);
+        
+    if (folderFiles && folderFiles.length > 0) {
+        const folderPaths = folderFiles.map(f => `${collectionId}/${f.name}`);
+        await supabase.storage.from('generated_images').remove(folderPaths);
+    }
+
+    // 4. Delete DB Records
+    // Manual cleanup of images to be safe (if Cascade is not set/fails)
+    await supabase.from('images').delete().eq('collection_id', collectionId);
+
+    const { error } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', collectionId)
+        .eq('user_id', user.id);
+
+    if (error) {
+        throw new Error("Failed to delete collection: " + error.message);
+    }
+    
+    return { success: true };
 }

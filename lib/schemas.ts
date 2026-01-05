@@ -9,6 +9,7 @@ export const ImageGenerationSchema = z.object({
   shotType: z.enum(["Ganzkörper", "Oberkörper", "Nahaufnahme Gesicht"]),
   customPrompt: z.string().optional(),
   collectionName: z.string().min(1, "Bitte gib einen Namen für die Sammlung ein"),
+  collectionId: z.string().optional(),
 });
 
 export const ApiKeySchema = z.object({

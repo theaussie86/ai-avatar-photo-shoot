@@ -24,6 +24,8 @@ import { Input } from "@/components/ui/input"
   onReset?: () => void;
   onDownloadAll?: () => void;
   isPending?: boolean;
+  collectionId?: string;
+  initialValues?: Partial<ImageGenerationConfig>;
 }
 
 export function ConfigurationPanel({ 
@@ -31,20 +33,22 @@ export function ConfigurationPanel({
   onGenerate, 
   onReset, 
   onDownloadAll,
-  isPending = false
+  isPending = false,
+  collectionId,
+  initialValues
 }: ConfigurationPanelProps) {
-    const [imageCount, setImageCount] = React.useState([1])
-    const [referenceImages, setReferenceImages] = React.useState<string[]>([])
-    const [background, setBackground] = React.useState<"white" | "green" | "custom">("white")
-    const [customBgImage, setCustomBgImage] = React.useState<string | null>(null)
+    const [imageCount, setImageCount] = React.useState(initialValues?.imageCount || [1])
+    const [referenceImages, setReferenceImages] = React.useState<string[]>(initialValues?.referenceImages || [])
+    const [background, setBackground] = React.useState<"white" | "green" | "custom">(initialValues?.background || "white")
+    const [customBgImage, setCustomBgImage] = React.useState<string | null>(initialValues?.customBgImage || null)
     
-    const [aspectRatio, setAspectRatio] = React.useState("1:1")
-    const [shotType, setShotType] = React.useState("Ganzkörper")
+    const [aspectRatio, setAspectRatio] = React.useState(initialValues?.aspectRatio as "1:1" | "9:16" | "4:5" | "3:4" | "4:3" | "16:9" | "21:9" || "1:1")
+    const [shotType, setShotType] = React.useState(initialValues?.shotType as "Ganzkörper" | "Oberkörper" | "Nahaufnahme Gesicht" || "Ganzkörper")
     
     // Custom Prompt State
-    const [showCustomPrompt, setShowCustomPrompt] = React.useState(false)
-    const [customPrompt, setCustomPrompt] = React.useState("")
-    const [collectionName, setCollectionName] = React.useState("")
+    const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
+    const [customPrompt, setCustomPrompt] = React.useState(initialValues?.customPrompt || "")
+    const [collectionName, setCollectionName] = React.useState(initialValues?.collectionName || "")
     
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     const customBgInputRef = React.useRef<HTMLInputElement>(null)
@@ -88,7 +92,8 @@ export function ConfigurationPanel({
         aspectRatio: aspectRatio as any,
         shotType: shotType as any,
         customPrompt,
-        collectionName
+        collectionName,
+        collectionId
      }
 
      const validation = ImageGenerationSchema.safeParse(data);
@@ -125,7 +130,7 @@ export function ConfigurationPanel({
     <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl">
       
       <div className="space-y-4">
-        <Label className="text-base font-medium text-gray-200">Name der Sammlung <span className="text-red-500">*</span></Label>
+        <Label className="text-base font-medium text-gray-200">Name des Shootings <span className="text-red-500">*</span></Label>
         <Input 
           placeholder="z.B. Cyberpunk Shooting, Business Headshots..." 
           value={collectionName}
@@ -244,7 +249,7 @@ export function ConfigurationPanel({
         {/* Aspect Ratio */}
         <div className="space-y-2">
           <Label className="text-gray-200">Bildformat</Label>
-          <Select value={aspectRatio} onValueChange={setAspectRatio}>
+          <Select value={aspectRatio} onValueChange={(val) => setAspectRatio(val as any)}>
             <SelectTrigger className="w-full text-gray-200 bg-black/40 border-white/10">
               <SelectValue placeholder="Wähle Format" />
             </SelectTrigger>
@@ -263,7 +268,7 @@ export function ConfigurationPanel({
         {/* Shot Type */}
         <div className="space-y-2">
           <Label className="text-gray-200">Aufnahme-Typ</Label>
-          <Select value={shotType} onValueChange={setShotType}>
+          <Select value={shotType} onValueChange={(val) => setShotType(val as any)}>
             <SelectTrigger className="w-full text-gray-200 bg-black/40 border-white/10">
               <SelectValue placeholder="Wähle Aufnahme" />
             </SelectTrigger>
