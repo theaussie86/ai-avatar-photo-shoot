@@ -7,6 +7,13 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 export function ConfigurationPanel() {
@@ -14,6 +21,9 @@ export function ConfigurationPanel() {
   const [referenceImages, setReferenceImages] = React.useState<string[]>([])
   const [background, setBackground] = React.useState<"white" | "green" | "custom">("white")
   const [customBgImage, setCustomBgImage] = React.useState<string | null>(null)
+  
+  const [aspectRatio, setAspectRatio] = React.useState("1:1")
+  const [shotType, setShotType] = React.useState("Ganzkörper")
   
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const customBgInputRef = React.useRef<HTMLInputElement>(null)
@@ -157,21 +167,35 @@ export function ConfigurationPanel() {
         {/* Aspect Ratio */}
         <div className="space-y-2">
           <Label>Bildformat</Label>
-          <div className="relative">
-            <div className="flex items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm">
-              <span>Quadratisch (1:1)</span>
-            </div>
-          </div>
+          <Select value={aspectRatio} onValueChange={setAspectRatio}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Wähle Format" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1:1">Quadratisch (1:1)</SelectItem>
+              <SelectItem value="9:16">Mobile (9:16)</SelectItem>
+              <SelectItem value="4:5">Instagram (4:5)</SelectItem>
+              <SelectItem value="3:4">Foto Hochformat (3:4)</SelectItem>
+              <SelectItem value="4:3">Foto Querformat (4:3)</SelectItem>
+              <SelectItem value="16:9">Widescreen (16:9)</SelectItem>
+              <SelectItem value="21:9">Ultra-Breit (21:9)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Shot Type */}
         <div className="space-y-2">
           <Label>Aufnahme-Typ</Label>
-           <div className="relative">
-            <div className="flex items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm">
-              <span>Ganzkörper</span>
-            </div>
-          </div>
+          <Select value={shotType} onValueChange={setShotType}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Wähle Aufnahme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Ganzkörper">Ganzkörper</SelectItem>
+              <SelectItem value="Oberkörper">Oberkörper</SelectItem>
+              <SelectItem value="Nahaufnahme Gesicht">Nahaufnahme Gesicht</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
