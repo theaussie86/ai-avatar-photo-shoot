@@ -37,6 +37,14 @@ Create a `.env.local` file in the root directory and add your Supabase credentia
 ```bash
 npm run dev
 ```
+
+### 5. Supabase Automation (Optional but Recommended)
+To keep your TypeScript types in sync with your Supabase schema:
+```bash
+npm run types:update
+```
+SQL migrations are managed in `./supabase/migrations`.
+
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🛡️ Security & Privacy
