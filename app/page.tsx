@@ -7,10 +7,20 @@ import { ImageGallery } from "@/components/avatar-creator/ImageGallery";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { useMutation } from "@tanstack/react-query";
+import { generateImagesAction } from "@/app/actions/image-actions";
+
 export default function Home() {
   const [generatedImages, setGeneratedImages] = React.useState<string[]>([])
   const router = useRouter()
   const supabase = createClient()
+
+  const mutation = useMutation({
+    mutationFn: generateImagesAction,
+    onSuccess: (newImages) => {
+      setGeneratedImages((prev) => [...prev, ...newImages])
+    },
+  })
 
   React.useEffect(() => {
     const checkUser = async () => {
@@ -24,9 +34,7 @@ export default function Home() {
 
 
   const handleGenerate = () => {
-    // Mock generation - add 3 placeholder images
-    const newImages = Array(3).fill("/placeholder-image.jpg") // You might want to use a real placeholder URL or data URI
-    setGeneratedImages([...generatedImages, ...newImages])
+    mutation.mutate()
   }
 
   const handleReset = () => {
@@ -40,6 +48,7 @@ export default function Home() {
           hasGeneratedImages={generatedImages.length > 0}
           onGenerate={handleGenerate}
           onReset={handleReset}
+          isPending={mutation.isPending}
         />
       </div>
       <div className="space-y-6">

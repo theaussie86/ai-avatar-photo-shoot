@@ -22,13 +22,15 @@ import { Input } from "@/components/ui/input"
   onGenerate?: () => void;
   onReset?: () => void;
   onDownloadAll?: () => void;
+  isPending?: boolean;
 }
 
 export function ConfigurationPanel({ 
   hasGeneratedImages = false, 
   onGenerate, 
   onReset, 
-  onDownloadAll 
+  onDownloadAll,
+  isPending = false
 }: ConfigurationPanelProps) {
     const [imageCount, setImageCount] = React.useState([1])
     const [referenceImages, setReferenceImages] = React.useState<string[]>([])
@@ -255,13 +257,23 @@ export function ConfigurationPanel({
        {/* Actions */}
        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
          {!hasGeneratedImages ? (
-           <Button variant="neon" className="w-full col-span-full" onClick={onGenerate}>
-             Bilder generieren
+           <Button 
+             variant="neon" 
+             className="w-full col-span-full" 
+             onClick={onGenerate}
+             disabled={isPending}
+           >
+             {isPending ? "Generiere..." : "Bilder generieren"}
            </Button>
          ) : (
            <>
-             <Button variant="neon" className="w-full" onClick={onGenerate}>
-               + Bilder dazu generieren
+             <Button 
+               variant="neon" 
+               className="w-full" 
+               onClick={onGenerate}
+               disabled={isPending}
+             >
+               {isPending ? "Generiere..." : "+ Bilder dazu generieren"}
              </Button>
              <Button 
                variant="destructive" 
