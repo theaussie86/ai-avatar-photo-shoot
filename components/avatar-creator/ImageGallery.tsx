@@ -31,6 +31,7 @@ interface ImageGalleryProps {
 }
 
 import { useMutation } from "@tanstack/react-query"
+import { useDownloadImage } from "@/hooks/use-download-image"
 
 // ... imports remain the same
 
@@ -58,6 +59,8 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const MAX_ZOOM = 3
   const MIN_ZOOM = 0.5
   const STEP = 0.25
+
+  const downloadMutation = useDownloadImage()
 
   const deleteMutation = useMutation({
     mutationFn: async (image: Image) => {
@@ -121,6 +124,10 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const openGallery = (index: number) => {
       setInitialIndex(index)
       setIsOpen(true)
+  }
+
+  const handleDownload = (url: string, id: string) => {
+      downloadMutation.mutate({ url, fileName: `image-${id}.png` })
   }
 
   if (images.length === 0) {
@@ -199,12 +206,12 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                         variant="secondary"
                         size="icon"
                         className="h-8 w-8 rounded-full bg-white/20 hover:bg-white text-white hover:text-black border-none"
-                        onClick={(e) => e.stopPropagation()}
-                        asChild
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownload(img.url, img.id)
+                        }}
                     >
-                        <a href={img.url} download target="_blank" rel="noopener noreferrer">
-                          <Download className="h-4 w-4" />
-                        </a>
+                        <Download className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -261,11 +268,9 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                                     variant="secondary"
                                     size="icon"
                                     className="h-8 w-8 bg-white/10 text-white hover:bg-white hover:text-black"
-                                    asChild
+                                    onClick={() => handleDownload(currentImage.url, currentImage.id)}
                                 >
-                                    <a href={currentImage.url} download target="_blank" rel="noopener noreferrer">
-                                        <Download className="h-4 w-4" />
-                                    </a>
+                                    <Download className="h-4 w-4" />
                                 </Button>
                                 </>
                              )}

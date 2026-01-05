@@ -22,7 +22,7 @@ import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
   onGenerate?: (data: ImageGenerationConfig) => void;
-  onReset?: () => void;
+  onDeleteAll?: () => void;
   onDownloadAll?: () => void;
   isPending?: boolean;
   collectionId?: string;
@@ -32,7 +32,7 @@ interface ConfigurationPanelProps {
 export function ConfigurationPanel({ 
   hasGeneratedImages = false, 
   onGenerate, 
-  onReset, 
+  onDeleteAll, 
   onDownloadAll,
   isPending = false,
   collectionId,
@@ -347,11 +347,11 @@ export function ConfigurationPanel({
              <Button 
                variant="destructive" 
                className="w-full bg-red-500 hover:bg-red-600"
-               onClick={onReset}
+               onClick={onDeleteAll}
              >
-               Neu generieren
+               Alle Bilder löschen
              </Button>
-             <Button variant="outline" className="w-full" onClick={onDownloadAll}>
+             <Button className="w-full bg-white text-black hover:bg-gray-200" onClick={onDownloadAll}>
                Alle herunterladen
              </Button>
            </>

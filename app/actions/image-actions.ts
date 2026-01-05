@@ -325,3 +325,54 @@ export async function deleteImageAction(imageId: string, storagePath: string) {
 
   return { success: true };
 }
+
+export async function deleteCollectionImagesAction(collectionId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // 1. Verify Ownership
+    const { data: collection } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', collectionId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!collection) {
+        throw new Error("Collection not found or access denied");
+    }
+
+    // 2. Delete from Storage
+    // List all files in the collection folder
+    const { data: files } = await supabase
+        .storage
+        .from('generated_images')
+        .list(collectionId);
+
+    if (files && files.length > 0) {
+        const pathsToDelete = files.map(f => `${collectionId}/${f.name}`);
+        await supabase
+            .storage
+            .from('generated_images')
+            .remove(pathsToDelete);
+    }
+
+    // 3. Delete from DB
+    const { error: dbError } = await supabase
+        .from('images')
+        .delete()
+        .eq('collection_id', collectionId);
+
+    if (dbError) {
+        throw new Error("Failed to delete images: " + dbError.message);
+    }
+
+    // Update collection status back to initial or similar if needed? 
+    // Maybe not necessary as we can just add new images.
+    
+    return { success: true };
+}

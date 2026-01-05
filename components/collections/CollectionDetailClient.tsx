@@ -10,6 +10,9 @@ import { generateImagesAction, deleteCollectionAction } from "@/app/actions/imag
 import { ImageGallery } from "@/components/avatar-creator/ImageGallery"
 import { ImageGenerationConfig } from "@/lib/schemas"
 import { Button } from "@/components/ui/button"
+import { useDownloadImage } from "@/hooks/use-download-image"
+import { deleteCollectionImagesAction } from "@/app/actions/image-actions"
+import JSZip from "jszip"
 
 import {
   AlertDialog,
@@ -62,6 +65,70 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
        alert("Fehler beim Löschen");
     }
   })
+
+  // Delete all images mutation
+  const deleteAllImagesMutation = useMutation({
+    mutationFn: async () => {
+        await deleteCollectionImagesAction(collection.id)
+    },
+    onSuccess: () => {
+        router.refresh()
+    },
+    onError: (error) => {
+        console.error("Failed to delete all images:", error)
+        alert("Fehler beim Löschen aller Bilder")
+    }
+  })
+
+
+
+  // State for delete all dialog
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = React.useState(false)
+
+  const [isDownloading, setIsDownloading] = React.useState(false)
+
+  const handleDownloadAll = async () => {
+      if (images.length === 0) return
+      setIsDownloading(true)
+      
+      try {
+          const zip = new JSZip()
+          const folder = zip.folder(collection.name || "collection")
+
+          // Fetch all images
+          const promises = images.map(async (img, index) => {
+              try {
+                  const response = await fetch(img.url)
+                  const blob = await response.blob()
+                  const fileName = `image-${index + 1}.png`
+                  folder?.file(fileName, blob)
+              } catch (err) {
+                  console.error("Failed to fetch image for zip:", img.id, err)
+              }
+          })
+
+          await Promise.all(promises)
+
+          // Generate zip
+          const content = await zip.generateAsync({ type: "blob" })
+          
+          // Trigger download
+          const downloadUrl = window.URL.createObjectURL(content)
+          const link = document.createElement('a')
+          link.href = downloadUrl
+          link.download = `${collection.name || "images"}.zip`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(downloadUrl)
+
+      } catch (error) {
+          console.error("Failed to create zip:", error)
+          alert("Fehler beim Erstellen der ZIP-Datei")
+      } finally {
+          setIsDownloading(false)
+      }
+  }
 
   const handleGenerate = (data: ImageGenerationConfig) => {
     generateMutation.mutate(data)
@@ -117,14 +184,43 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+
+            {/* Delete All Images Dialog */}
+            <AlertDialog open={isDeleteAllOpen} onOpenChange={setIsDeleteAllOpen}>
+                <AlertDialogContent className="bg-gray-900 border-white/10 text-white">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Alle Bilder löschen?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-gray-400">
+                             Möchtest du wirklich alle generierten Bilder in diesem Shooting löschen? Das Shooting selbst bleibt erhalten.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction
+                             onClick={(e) => {
+                                 e.preventDefault()
+                                 deleteAllImagesMutation.mutate()
+                                 setIsDeleteAllOpen(false)
+                             }}
+                             className="bg-red-600 hover:bg-red-700 text-white border-none"
+                             disabled={deleteAllImagesMutation.isPending}
+                        >
+                            {deleteAllImagesMutation.isPending ? "Lösche..." : "Alles Löschen"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
 
         {/* Configuration Panel */}
         <div>
             <ConfigurationPanel 
                 onGenerate={handleGenerate}
-                isPending={generateMutation.isPending}
-                hasGeneratedImages={true}
+                onDownloadAll={handleDownloadAll}
+                onDeleteAll={() => setIsDeleteAllOpen(true)}
+                isPending={generateMutation.isPending || deleteAllImagesMutation.isPending || isDownloading}
+                hasGeneratedImages={images.length > 0}
                 collectionId={collection.id}
                 initialValues={{
                     collectionName: collection.name,
