@@ -7,26 +7,43 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+  import { Textarea } from "@/components/ui/textarea"
+  import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select"
+  import { cn } from "@/lib/utils"
+  
+  interface ConfigurationPanelProps {
+  hasGeneratedImages?: boolean;
+  onGenerate?: () => void;
+  onReset?: () => void;
+  onDownloadAll?: () => void;
+}
 
-export function ConfigurationPanel() {
-  const [imageCount, setImageCount] = React.useState([1])
-  const [referenceImages, setReferenceImages] = React.useState<string[]>([])
-  const [background, setBackground] = React.useState<"white" | "green" | "custom">("white")
-  const [customBgImage, setCustomBgImage] = React.useState<string | null>(null)
-  
-  const [aspectRatio, setAspectRatio] = React.useState("1:1")
-  const [shotType, setShotType] = React.useState("Ganzkörper")
-  
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const customBgInputRef = React.useRef<HTMLInputElement>(null)
+export function ConfigurationPanel({ 
+  hasGeneratedImages = false, 
+  onGenerate, 
+  onReset, 
+  onDownloadAll 
+}: ConfigurationPanelProps) {
+    const [imageCount, setImageCount] = React.useState([1])
+    const [referenceImages, setReferenceImages] = React.useState<string[]>([])
+    const [background, setBackground] = React.useState<"white" | "green" | "custom">("white")
+    const [customBgImage, setCustomBgImage] = React.useState<string | null>(null)
+    
+    const [aspectRatio, setAspectRatio] = React.useState("1:1")
+    const [shotType, setShotType] = React.useState("Ganzkörper")
+    
+    // Custom Prompt State
+    const [showCustomPrompt, setShowCustomPrompt] = React.useState(false)
+    const [customPrompt, setCustomPrompt] = React.useState("")
+    
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const customBgInputRef = React.useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -55,12 +72,12 @@ export function ConfigurationPanel() {
   }
 
   return (
-    <div className="space-y-8 p-6 rounded-xl border bg-card/50 backdrop-blur-sm">
+    <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl">
       
       {/* Reference Images */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-medium">Referenzbilder</Label>
+          <Label className="text-base font-medium text-gray-200">Referenzbilder</Label>
           <div className="flex gap-1 text-muted-foreground">
              <div className="h-2 w-2 rounded-full bg-purple-500" />
           </div>
@@ -101,7 +118,7 @@ export function ConfigurationPanel() {
 
       {/* Background */}
       <div className="space-y-4">
-        <Label className="text-base font-medium">Hintergrund</Label>
+        <Label className="text-base font-medium text-gray-200">Hintergrund</Label>
         <div className="grid grid-cols-3 gap-2">
           <Button 
             variant={background === "white" ? "default" : "outline"} 
@@ -166,9 +183,9 @@ export function ConfigurationPanel() {
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Aspect Ratio */}
         <div className="space-y-2">
-          <Label>Bildformat</Label>
+          <Label className="text-gray-200">Bildformat</Label>
           <Select value={aspectRatio} onValueChange={setAspectRatio}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full text-gray-200 bg-black/40 border-white/10">
               <SelectValue placeholder="Wähle Format" />
             </SelectTrigger>
             <SelectContent>
@@ -185,9 +202,9 @@ export function ConfigurationPanel() {
 
         {/* Shot Type */}
         <div className="space-y-2">
-          <Label>Aufnahme-Typ</Label>
+          <Label className="text-gray-200">Aufnahme-Typ</Label>
           <Select value={shotType} onValueChange={setShotType}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full text-gray-200 bg-black/40 border-white/10">
               <SelectValue placeholder="Wähle Aufnahme" />
             </SelectTrigger>
             <SelectContent>
@@ -201,38 +218,63 @@ export function ConfigurationPanel() {
 
        {/* Quantity Slider */}
        <div className="space-y-4">
-        <div className="flex items-center justify-between">
-           <Label>Anzahl Bilder</Label>
-           <span className="text-sm text-muted-foreground">{imageCount[0]} / 40</span>
-        </div>
+       <div className="flex items-center justify-between">
+            <Label className="text-gray-200">Anzahl Bilder</Label>
+            <span className="text-sm font-medium text-gray-200">{imageCount[0]} / 40</span>
+         </div>
         <Slider
           value={imageCount}
           onValueChange={setImageCount}
           max={40}
           step={1}
-          className="[&>.range]:bg-red-500" // Customizing slider color to match screenshot
+          className="[&_[data-slot=slider-track]]:bg-gray-800 [&_[data-slot=slider-range]]:bg-white" 
         />
       </div>
 
       {/* Custom Prompt */}
-      <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/10">
-         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-           Custom Prompt verwenden
-         </div>
-         <Switch />
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/10">
+           <div className="flex items-center gap-2 text-sm font-medium text-gray-200 flex-1">
+             Custom Prompt verwenden
+           </div>
+           <Switch checked={showCustomPrompt} onCheckedChange={setShowCustomPrompt} />
+        </div>
+        
+        {showCustomPrompt && (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+             <Textarea 
+                placeholder="Beschreibe deine Szene im Detail..." 
+                className="min-h-[100px] resize-none bg-black/40 border-white/10 text-gray-200 placeholder:text-gray-500"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+             />
+          </div>
+        )}
       </div>
 
        {/* Actions */}
        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-         <Button variant="neon" className="w-full">
-           + Bilder dazu generieren
-         </Button>
-         <Button variant="destructive" className="w-full bg-red-500 hover:bg-red-600">
-           Neu generieren
-         </Button>
-         <Button variant="outline" className="w-full">
-           Alle herunterladen
-         </Button>
+         {!hasGeneratedImages ? (
+           <Button variant="neon" className="w-full col-span-full" onClick={onGenerate}>
+             Bilder generieren
+           </Button>
+         ) : (
+           <>
+             <Button variant="neon" className="w-full" onClick={onGenerate}>
+               + Bilder dazu generieren
+             </Button>
+             <Button 
+               variant="destructive" 
+               className="w-full bg-red-500 hover:bg-red-600"
+               onClick={onReset}
+             >
+               Neu generieren
+             </Button>
+             <Button variant="outline" className="w-full" onClick={onDownloadAll}>
+               Alle herunterladen
+             </Button>
+           </>
+         )}
        </div>
     </div>
   )
