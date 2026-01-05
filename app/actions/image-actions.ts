@@ -2,6 +2,8 @@
 "use server"
 
 import { ImageGenerationConfig, ImageGenerationSchema } from "@/lib/schemas";
+import { IMAGE_GENERATION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { POSES } from "@/lib/poses";
 import { createClient } from "@/lib/supabase/server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -78,52 +80,61 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
   }
 
   const genAI = new GoogleGenerativeAI(profile.gemini_api_key);
-  // Important: Use a model that supports what we need. 
-  // Standard gemini-1.5-flash is text/multimodal. 
-  // If the user has access to Imagen via Vertex AI, they'd use a different config.
-  // BUT assuming standard Gemini API key, we might need to rely on prompt engineering or a specific model if accessible.
-  // For this "AI Avatar" use case, we strongly imply image generation.
-  // Google's JS SDK `getGenerativeModel` supports `imagen-3.0-generate-001` if the key allows.
-  // Let's try that, or fall back to a text description if not available (for debugging flow).
-  // We'll assume the user wants access to Imagen.
-  
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
-  // wait, flash is NOT for image generation output. 
-  // We need `imagen-3.0-generate-001` or similar. 
-  // IMPORTANT: The standard `@google/generative-ai` package DOES NOT support `generateImage` method directly on the model class YET 
-  // similar to `generateContent`. It's often a different endpoint or REST call.
-  // However, for this task, the USER specified "generate images".
-  // If we can't do it via SDK easily, we might need a REST call or assume a placeholder for now to prove FLOW.
-  // The user asked to "debug the process".
-  // I will implement a placeholder generation that retrieves a random image to Simulate success 
-  // OR try to actually hit an endpoint if I can find the verified one for this SDK.
-  // A common pattern with Gemini SDK is `generateContent` for text.
-  // Let's implement the FLOW with a placeholder and a TODO/Comment explaining exactly where the model call goes,
-  // as the specific Imagen model access is beta/allowlisted often.
-  // ... Wait, user said "da wir hier mit KI arbeiten". 
-  // I will use a placeholder fetch from a public source to mimic "AI generation" for the infrastructure test, 
-  // logging the prompt to console so the user sees it's working.
-  
+
+  // 1. Refinement moved inside loop for per-image variation
   console.log("Starting generation for collection:", collection.id);
-  console.log("Prompt:", data.customPrompt || "Standard avatar prompt");
 
   const generatedImages: string[] = [];
 
   try {
       const imagesToGenerate = data.imageCount[0];
       
+      // Get available poses for the selected shot type
+      const availablePoses = POSES[data.shotType] || POSES["full_body"];
+      // Shuffle poses to get random ones
+      const shuffledPoses = [...availablePoses].sort(() => 0.5 - Math.random());
+      
       for (let i = 0; i < imagesToGenerate; i++) {
-        // MOCK GENERATION for flow verification
-        // Logic: 
-        // 1. (Real) await model.generateImage(...)
-        // 2. (Mock) fetch a random image
+        // 1. Select a unique pose
+        // If we request more images than poses, we cycle through them
+        const pose = shuffledPoses[i % shuffledPoses.length];
         
-        console.log(`Generating image ${i + 1}/${imagesToGenerate}...`);
+        console.log(`Generating image ${i + 1}/${imagesToGenerate}... using pose: "${pose}"`);
         
+        // 2. Refine Prompt Individually
+        let finalPrompt = data.customPrompt || "A professional photo of an AI avatar";
+        
+        try {
+            const textModel = genAI.getGenerativeModel({ 
+                model: "gemini-1.5-flash",
+                systemInstruction: IMAGE_GENERATION_SYSTEM_PROMPT
+            });
+
+            const promptRequest = `Generate a photography prompt for:
+              Aspect Ratio: ${data.aspectRatio}
+              Shot Type: ${data.shotType}
+              Pose: ${pose}
+              Background: ${data.background}
+              Custom Instructions: ${data.customPrompt || "None"}
+            `;
+
+            const { response } = await textModel.generateContent(promptRequest);
+            const refined = response.text();
+            
+            if (refined) {
+                finalPrompt = refined;
+                console.log(`   ✨ Refined Prompt [${i+1}]:`, finalPrompt.substring(0, 100) + "...");
+            }
+        } catch (promptError) {
+             console.error("Prompt refinement failed, using fallback:", promptError);
+             finalPrompt = `${data.shotType} photo, pose: ${pose}, ${data.background} background. ${data.customPrompt || ""}`;
+        }
+
+        // 3. Generate Image (Simulated/Placeholder)
         // Simulating 2s delay
         await new Promise(r => setTimeout(r, 1000));
         
-        const buffer = await fetch(`https://picsum.photos/seed/${collection.id}-${i}/1024/1024`)
+        const buffer = await fetch(`https://picsum.photos/seed/${collection.id}-${i}-${pose.length}/1024/1024`)
             .then(res => res.arrayBuffer());
 
         const fileName = `${collection.id}/${crypto.randomUUID()}.png`;
@@ -153,7 +164,8 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
                 url: publicUrl,
                 storage_path: fileName,
                 status: 'completed',
-                type: 'generated'
+                type: 'generated',
+                prompt: finalPrompt // Useful to save the prompt!
             });
             
         generatedImages.push(publicUrl);

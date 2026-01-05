@@ -18,9 +18,9 @@ export const ASPECT_RATIOS = [
 export type AspectRatioType = typeof ASPECT_RATIOS[number];
 
 export const SHOT_TYPES = [
-  "Ganzkörper", 
-  "Oberkörper", 
-  "Nahaufnahme Gesicht"
+  "full_body", 
+  "upper_body", 
+  "face"
 ] as const;
 
 export type ShotType = typeof SHOT_TYPES[number];

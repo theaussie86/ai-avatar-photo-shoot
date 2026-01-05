@@ -62,7 +62,12 @@ describe('Image Actions', () => {
     (createClient as any).mockResolvedValue(mockSupabase);
     (GoogleGenerativeAI as any).mockImplementation(function (this: any) {
         return {
-            getGenerativeModel: vi.fn().mockReturnValue(mockGenAIModel)
+            getGenerativeModel: vi.fn().mockReturnValue({
+                ...mockGenAIModel,
+                generateContent: vi.fn().mockResolvedValue({
+                    response: { text: () => "Mocked refined prompt" }
+                })
+            })
         };
     });
     
@@ -116,7 +121,7 @@ describe('Image Actions', () => {
   describe('generateImagesAction', () => {
     const validData = {
       imageCount: [1],
-      shotType: 'Oberkörper',
+      shotType: 'upper_body',
       collectionName: 'Test Collection',
       customPrompt: 'A test prompt',
       aspectRatio: '1:1',

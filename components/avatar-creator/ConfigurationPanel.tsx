@@ -46,7 +46,7 @@ export function ConfigurationPanel({
     
     // Updated aspect ratios including Auto
     const [aspectRatio, setAspectRatio] = React.useState<AspectRatioType>(initialValues?.aspectRatio as AspectRatioType || "Auto")
-    const [shotType, setShotType] = React.useState<ShotType>(initialValues?.shotType as ShotType || "Ganzkörper")
+    const [shotType, setShotType] = React.useState<ShotType>(initialValues?.shotType as ShotType || "full_body")
     
     // Custom Prompt State
     const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
@@ -278,7 +278,9 @@ export function ConfigurationPanel({
             <SelectContent>
               {SHOT_TYPES.map((type) => (
                 <SelectItem key={type} value={type}>
-                  {type}
+                  {type === 'full_body' ? 'Ganzkörper' : 
+                   type === 'upper_body' ? 'Oberkörper' : 
+                   type === 'face' ? 'Nahaufnahme Gesicht' : type}
                 </SelectItem>
               ))}
             </SelectContent>
