@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,10 +11,64 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Settings, Lock, LogOut } from "lucide-react"
+import { Settings, Lock, LogOut, Loader2, CheckCircle2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { updateGeminiApiKey } from "@/app/actions/profile-actions"
 
 export function SettingsModal() {
+  const [apiKey, setApiKey] = React.useState("")
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [saveStatus, setSaveStatus] = React.useState<"idle" | "success" | "error">("idle")
+  const [userEmail, setUserEmail] = React.useState<string | null>(null)
+  const [hasStoredKey, setHasStoredKey] = React.useState(false)
+
+  const supabase = createClient()
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserEmail(user.email ?? null)
+        
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("gemini_api_key")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.gemini_api_key) {
+          setHasStoredKey(true)
+          setApiKey("••••••••••••••••")
+        }
+      }
+    }
+    fetchProfile()
+  }, [supabase])
+
+  const handleSave = async () => {
+    if (!apiKey || apiKey === "••••••••••••••••") return
+
+    setIsSaving(true)
+    setSaveStatus("idle")
+    
+    try {
+      const result = await updateGeminiApiKey(apiKey)
+      if (result.success) {
+        setSaveStatus("success")
+        setHasStoredKey(true)
+        setApiKey("••••••••••••••••")
+        setTimeout(() => setSaveStatus("idle"), 3000)
+      } else {
+        setSaveStatus("error")
+      }
+    } catch (error) {
+      console.error("Save error:", error)
+      setSaveStatus("error")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -31,60 +86,74 @@ export function SettingsModal() {
         
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="apiKey" className="text-base font-semibold">Google Gemini API Key</Label>
-            <Input
-              id="apiKey"
-              placeholder="Gib deinen API Key ein..."
-              className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-indigo-500"
-            />
+            <div className="flex justify-between items-center">
+              <Label htmlFor="apiKey" className="text-base font-semibold">Google Gemini API Key</Label>
+              {hasStoredKey && (
+                <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full border border-green-500/20">
+                  Gespeichert
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={(e) => {
+                  setApiKey(e.target.value)
+                  if (saveStatus !== "idle") setSaveStatus("idle")
+                }}
+                onFocus={() => {
+                  if (apiKey === "••••••••••••••••") {
+                    setApiKey("")
+                  }
+                }}
+                placeholder={hasStoredKey ? "••••••••••••••••" : "Gib deinen API Key ein..."}
+                className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-indigo-500 pr-10"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                <Lock className="h-4 w-4" />
+              </div>
+            </div>
             <p className="text-xs text-zinc-500">
-              Dein API Key wird sicher gespeichert und nur lokal verwendet.
+              Dein API Key wird verschlüsselt in der Datenbank gespeichert.
             </p>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold">Farbschema</Label>
-              <Lock className="h-4 w-4 text-zinc-600" />
-            </div>
             
-            <div className="grid grid-cols-5 gap-2">
-               <div className="flex flex-col items-center gap-1">
-                 <div className="h-12 w-12 rounded-xl bg-zinc-900 border-2 border-indigo-500 flex items-center justify-center relative overflow-hidden group cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-                    <div className="h-6 w-6 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-600" />
-                 </div>
-                 <span className="text-[10px] font-medium text-white">Neon</span>
-                 <span className="text-[9px] text-zinc-500">Dunkel</span>
-               </div>
-               
-               {/* Themes */}
-               {[
-                 { name: "Sunset", sub: "Dunkel", color: "from-orange-400 to-red-600" },
-                 { name: "Ocean", sub: "Dunkel", color: "from-cyan-400 to-blue-600" },
-                 { name: "Frost", sub: "Hell", color: "from-sky-300 to-blue-400" },
-                 { name: "Sand", sub: "Hell", color: "from-yellow-200 to-amber-500" }
-               ].map((theme) => (
-                 <div key={theme.name} className="flex flex-col items-center gap-1 cursor-pointer group">
-                    <div className="h-12 w-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center relative transition-all group-hover:border-zinc-600">
-                      <div className={`h-6 w-6 rounded-full bg-gradient-to-br ${theme.color}`} />
-                    </div>
-                    <span className="text-[10px] font-medium text-zinc-400 group-hover:text-zinc-300">{theme.name}</span>
-                    <span className="text-[9px] text-zinc-600">{theme.sub}</span>
-                 </div>
-               ))}
-            </div>
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving || !apiKey || apiKey === "••••••••••••••••"}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-[0.98]"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Speichern...
+                </>
+              ) : saveStatus === "success" ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Gespeichert!
+                </>
+              ) : (
+                "Key speichern"
+              )}
+            </Button>
+            {saveStatus === "error" && (
+              <p className="text-xs text-red-400 text-center mt-2">
+                Fehler beim Speichern. Bitte versuche es erneut.
+              </p>
+            )}
           </div>
 
           <div className="pt-4 border-t border-zinc-800 space-y-4">
             <div className="space-y-1">
                <h4 className="text-sm font-semibold text-white">Account</h4>
-               <p className="text-sm text-zinc-400">Angemeldet als: christoph@weissteiner-automation.com</p>
-               <p className="text-sm text-zinc-400">Plan: Avatar Creator Studio - MVP</p>
+               <p className="text-sm text-zinc-400">Angemeldet als: {userEmail ?? "Lädt..."}</p>
             </div>
             
             <Button 
               variant="outline" 
-              className="w-full justify-center gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent"
+              className="w-full justify-center gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent text-zinc-300"
               onClick={async () => {
                 const supabase = createClient()
                 await supabase.auth.signOut()
