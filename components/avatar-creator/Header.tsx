@@ -11,7 +11,7 @@ export function AvatarCreatorHeader() {
         <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl bg-gradient-to-r from-purple-400 to-indigo-600 bg-clip-text text-transparent">
           KI Foto Shooting
         </h1>
-        <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-0">v1.0</Badge>
+        <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-0">v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}</Badge>
       </div>
       
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
