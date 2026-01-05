@@ -17,7 +17,11 @@ import { updateGeminiApiKey } from "@/app/actions/profile-actions"
 import { ApiKeySchema } from "@/lib/schemas"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-export function SettingsModal() {
+interface SettingsModalProps {
+  children?: React.ReactNode;
+}
+
+export function SettingsModal({ children }: SettingsModalProps) {
   const [apiKey, setApiKey] = React.useState("")
   const [isSaving, setIsSaving] = React.useState(false)
   const [saveStatus, setSaveStatus] = React.useState<"idle" | "success" | "error">("idle")
@@ -99,9 +103,11 @@ export function SettingsModal() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Settings className="h-5 w-5" />
-        </Button>
+        {children || (
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Settings className="h-5 w-5" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-[#1a1b26] border-zinc-800 text-white">
         <DialogHeader>

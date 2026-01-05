@@ -1,7 +1,6 @@
 "use client"
 
 import { ReactNode } from "react"
-import { AvatarCreatorHeader } from "./Header"
 import { SettingsModal } from "./SettingsModal"
 
 interface CreatorLayoutProps {
@@ -23,7 +22,7 @@ export function CreatorLayout({ children }: CreatorLayoutProps) {
            <SettingsModal />
         </div>
         
-        <AvatarCreatorHeader />
+        {/* <AvatarCreatorHeader /> */}
         
         <main className="flex flex-col gap-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
            {children}

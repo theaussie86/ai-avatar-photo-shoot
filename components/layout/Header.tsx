@@ -1,6 +1,9 @@
 
 import Link from "next/link";
 import { Layers } from "lucide-react";
+import { SettingsModal } from "@/components/avatar-creator/SettingsModal";
+
+import { Badge } from "@/components/ui/badge";
 
 interface HeaderProps {
   user: any;
@@ -20,8 +23,11 @@ export function Header({ user, profile }: HeaderProps) {
             />
           </div>
           <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            KI Foto Shooting
+            KI Foto Shooting 
           </span>
+          <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-0 ml-1">
+            v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
+          </Badge>
         </Link>
         <div className="flex items-center gap-6">
           <Link
@@ -36,11 +42,20 @@ export function Header({ user, profile }: HeaderProps) {
               <div className="text-sm font-medium text-white">
                 {profile?.full_name || user.email}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {profile?.credits || 0} Credits
-              </div>
             </div>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 ring-2 ring-white/10" />
+            <SettingsModal>
+              <button className="relative h-9 w-9 rounded-full overflow-hidden ring-2 ring-white/10 hover:ring-white/30 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-tr from-purple-500 to-blue-500" />
+                )}
+              </button>
+            </SettingsModal>
           </div>
         </div>
       </div>
