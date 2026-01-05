@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { generateImagesAction } from "@/app/actions/image-actions";
 
+
 import { ImageGenerationConfig } from "@/lib/schemas";
 
 export default function Home() {
@@ -19,9 +20,13 @@ export default function Home() {
 
   const mutation = useMutation({
     mutationFn: generateImagesAction,
-    onSuccess: (newImages) => {
+    onSuccess: (newImages: string[]) => {
       setGeneratedImages((prev) => [...prev, ...newImages])
     },
+    onError: (error: Error) => {
+      console.error("Generation failed:", error)
+      alert("Fehler bei der Generierung: " + error.message)
+    }
   })
 
   React.useEffect(() => {

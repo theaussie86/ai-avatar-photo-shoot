@@ -44,6 +44,7 @@ export function ConfigurationPanel({
     // Custom Prompt State
     const [showCustomPrompt, setShowCustomPrompt] = React.useState(false)
     const [customPrompt, setCustomPrompt] = React.useState("")
+    const [collectionName, setCollectionName] = React.useState("")
     
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     const customBgInputRef = React.useRef<HTMLInputElement>(null)
@@ -76,32 +77,63 @@ export function ConfigurationPanel({
 
 
 
-  const handleGenerateClick = () => {
+  const handleGenerateClick = async () => {
      if (!onGenerate) return;
 
      const data: ImageGenerationConfig = {
         imageCount,
         referenceImages,
-        background: background as any, // Cast for safety if string doesn't match exactly yet
+        background: background as any,
         customBgImage,
         aspectRatio: aspectRatio as any,
         shotType: shotType as any,
-        customPrompt
+        customPrompt,
+        collectionName
      }
 
      const validation = ImageGenerationSchema.safeParse(data);
      
      if (!validation.success) {
-        alert("Bitte überprüfe deine Eingaben: " + validation.error.message); // Simple alert for now
+        alert("Bitte überprüfe deine Eingaben: " + validation.error.message);
         return;
      }
 
-     onGenerate(validation.data);
+     try {
+       // Call the prompt onGenerate to pass data up, 
+       // BUT we also want to trigger the remote function here 
+       // or let the parent do it. 
+       // The original task was "Integrate Frontend", 
+       // and typically the parent page handles the mutation.
+       // However, looking at the code, `onGenerate` is passed from parent.
+       // I should verify where `ConfigurationPanel` is used.
+       // Since the user asked specifically to implement the function, 
+       // I will update the parent `app/page.tsx` or similar if accessible, 
+       // or update THIS component to call the API directly if appropriate 
+       // or ensure `onGenerate` does it.
+       // Let's assume `onGenerate` is the handler. 
+       // I will modify `handleGenerateClick` to just pass data 
+       // AND ALSO likely need to find where `onGenerate` is defined.
+       
+       onGenerate(validation.data);
+     } catch (error) {
+       console.error("Error triggering generation:", error);
+       alert("Fehler beim Starten der Generierung.");
+     }
   }
 
   return (
     <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl">
       
+      <div className="space-y-4">
+        <Label className="text-base font-medium text-gray-200">Name der Sammlung <span className="text-red-500">*</span></Label>
+        <Input 
+          placeholder="z.B. Cyberpunk Shooting, Business Headshots..." 
+          value={collectionName}
+          onChange={(e) => setCollectionName(e.target.value)}
+          className="bg-black/40 border-white/10 text-gray-200 placeholder:text-gray-500"
+        />
+      </div>
+
       {/* Reference Images */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -147,7 +179,7 @@ export function ConfigurationPanel({
       {/* Background */}
       <div className="space-y-4">
         <Label className="text-base font-medium text-gray-200">Hintergrund</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid md:grid-cols-3 gap-2">
           <Button 
             variant={background === "white" ? "default" : "outline"} 
             className={cn(
@@ -254,6 +286,7 @@ export function ConfigurationPanel({
           value={imageCount}
           onValueChange={setImageCount}
           max={40}
+          min={1}
           step={1}
           className="[&_[data-slot=slider-track]]:bg-gray-800 [&_[data-slot=slider-range]]:bg-white" 
         />

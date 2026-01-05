@@ -8,6 +8,7 @@ export const ImageGenerationSchema = z.object({
   aspectRatio: z.enum(["1:1", "9:16", "4:5", "3:4", "4:3", "16:9", "21:9"]),
   shotType: z.enum(["Ganzkörper", "Oberkörper", "Nahaufnahme Gesicht"]),
   customPrompt: z.string().optional(),
+  collectionName: z.string().min(1, "Bitte gib einen Namen für die Sammlung ein"),
 });
 
 export const ApiKeySchema = z.object({
