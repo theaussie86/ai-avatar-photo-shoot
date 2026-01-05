@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Settings, Lock, LogOut } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export function SettingsModal() {
   return (
@@ -81,7 +82,15 @@ export function SettingsModal() {
                <p className="text-sm text-zinc-400">Plan: Avatar Creator Studio - MVP</p>
             </div>
             
-            <Button variant="outline" className="w-full justify-center gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent">
+            <Button 
+              variant="outline" 
+              className="w-full justify-center gap-2 border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent"
+              onClick={async () => {
+                const supabase = createClient()
+                await supabase.auth.signOut()
+                window.location.href = "/login"
+              }}
+            >
               <LogOut className="h-4 w-4" />
               Abmelden
             </Button>

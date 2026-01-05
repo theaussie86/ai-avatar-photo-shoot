@@ -4,9 +4,24 @@ import * as React from "react"
 import { CreatorLayout } from "@/components/avatar-creator/CreatorLayout";
 import { ConfigurationPanel } from "@/components/avatar-creator/ConfigurationPanel";
 import { ImageGallery } from "@/components/avatar-creator/ImageGallery";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [generatedImages, setGeneratedImages] = React.useState<string[]>([])
+  const router = useRouter()
+  const supabase = createClient()
+
+  React.useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push("/login")
+      }
+    }
+    checkUser()
+  }, [router, supabase])
+
 
   const handleGenerate = () => {
     // Mock generation - add 3 placeholder images
