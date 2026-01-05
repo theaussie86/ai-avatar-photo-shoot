@@ -22,4 +22,10 @@ This command will automatically:
 2. Create a git commit with the new version number.
 3. Create a git tag for the release.
 
+Finally, push the commit and tag to GitHub:
+
+```bash
+git push --follow-tags
+```
+
 Please do not manually edit the version in `package.json`.
