@@ -1,24 +1,25 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Lock, Upload, Image as ImageIcon, Camera, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-  import { Textarea } from "@/components/ui/textarea"
-  import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-  } from "@/components/ui/select"
-  import { cn } from "@/lib/utils"
-  import { ImageGenerationSchema, ImageGenerationConfig } from "@/lib/schemas"
-  
-  interface ConfigurationPanelProps {
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
+import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, AspectRatioType, ShotType } from "@/lib/schemas"
+
+interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
   onGenerate?: (data: ImageGenerationConfig) => void;
   onReset?: () => void;
@@ -37,13 +38,15 @@ export function ConfigurationPanel({
   collectionId,
   initialValues
 }: ConfigurationPanelProps) {
+    const router = useRouter()
     const [imageCount, setImageCount] = React.useState(initialValues?.imageCount || [1])
     const [referenceImages, setReferenceImages] = React.useState<string[]>(initialValues?.referenceImages || [])
     const [background, setBackground] = React.useState<"white" | "green" | "custom">(initialValues?.background || "white")
     const [customBgImage, setCustomBgImage] = React.useState<string | null>(initialValues?.customBgImage || null)
     
-    const [aspectRatio, setAspectRatio] = React.useState(initialValues?.aspectRatio as "1:1" | "9:16" | "4:5" | "3:4" | "4:3" | "16:9" | "21:9" || "1:1")
-    const [shotType, setShotType] = React.useState(initialValues?.shotType as "Ganzkörper" | "Oberkörper" | "Nahaufnahme Gesicht" || "Ganzkörper")
+    // Updated aspect ratios including Auto
+    const [aspectRatio, setAspectRatio] = React.useState<AspectRatioType>(initialValues?.aspectRatio as AspectRatioType || "Auto")
+    const [shotType, setShotType] = React.useState<ShotType>(initialValues?.shotType as ShotType || "Ganzkörper")
     
     // Custom Prompt State
     const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
@@ -79,8 +82,6 @@ export function ConfigurationPanel({
     setReferenceImages(prev => prev.filter((_, i) => i !== index))
   }
 
-
-
   const handleGenerateClick = async () => {
      if (!onGenerate) return;
 
@@ -104,22 +105,16 @@ export function ConfigurationPanel({
      }
 
      try {
-       // Call the prompt onGenerate to pass data up, 
-       // BUT we also want to trigger the remote function here 
-       // or let the parent do it. 
-       // The original task was "Integrate Frontend", 
-       // and typically the parent page handles the mutation.
-       // However, looking at the code, `onGenerate` is passed from parent.
-       // I should verify where `ConfigurationPanel` is used.
-       // Since the user asked specifically to implement the function, 
-       // I will update the parent `app/page.tsx` or similar if accessible, 
-       // or update THIS component to call the API directly if appropriate 
-       // or ensure `onGenerate` does it.
-       // Let's assume `onGenerate` is the handler. 
-       // I will modify `handleGenerateClick` to just pass data 
-       // AND ALSO likely need to find where `onGenerate` is defined.
+       // Await the generation action
+       const result = await (onGenerate as any)(validation.data);
        
-       onGenerate(validation.data);
+       // Redirect if: 
+       // 1. We are creating a NEW collection (collectionId prop is missing)
+       // 2. The action was successful
+       // 3. We have a new collectionId to redirect to
+       if (!collectionId && result?.success && result?.collectionId) {
+          router.push(`/collections/${result.collectionId}`);
+       }
      } catch (error) {
        console.error("Error triggering generation:", error);
        alert("Fehler beim Starten der Generierung.");
@@ -254,13 +249,21 @@ export function ConfigurationPanel({
               <SelectValue placeholder="Wähle Format" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1:1">Quadratisch (1:1)</SelectItem>
-              <SelectItem value="9:16">Mobile (9:16)</SelectItem>
-              <SelectItem value="4:5">Instagram (4:5)</SelectItem>
-              <SelectItem value="3:4">Foto Hochformat (3:4)</SelectItem>
-              <SelectItem value="4:3">Foto Querformat (4:3)</SelectItem>
-              <SelectItem value="16:9">Widescreen (16:9)</SelectItem>
-              <SelectItem value="21:9">Ultra-Breit (21:9)</SelectItem>
+              {ASPECT_RATIOS.map((ratio) => (
+                <SelectItem key={ratio} value={ratio}>
+                   {ratio === 'Auto' ? 'Automatisch (Auto)' : 
+                    ratio === '1:1' ? 'Quadratisch (1:1)' :
+                    ratio === '9:16' ? 'Mobile (9:16)' :
+                    ratio === '16:9' ? 'Widescreen (16:9)' :
+                    ratio === '3:4' ? 'Foto Hochformat (3:4)' :
+                    ratio === '4:3' ? 'Foto Querformat (4:3)' :
+                    ratio === '3:2' ? 'Klassisch (3:2)' :
+                    ratio === '2:3' ? 'Portrait (2:3)' :
+                    ratio === '5:4' ? 'Mittelformat (5:4)' :
+                    ratio === '4:5' ? 'Instagram (4:5)' :
+                    ratio === '21:9' ? 'Ultra-Breit (21:9)' : ratio}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -273,9 +276,11 @@ export function ConfigurationPanel({
               <SelectValue placeholder="Wähle Aufnahme" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Ganzkörper">Ganzkörper</SelectItem>
-              <SelectItem value="Oberkörper">Oberkörper</SelectItem>
-              <SelectItem value="Nahaufnahme Gesicht">Nahaufnahme Gesicht</SelectItem>
+              {SHOT_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

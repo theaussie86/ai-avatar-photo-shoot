@@ -1,12 +1,37 @@
 import { z } from "zod";
 
+// Define constants to be used in both Schema and UI
+export const ASPECT_RATIOS = [
+  "Auto", 
+  "1:1", 
+  "9:16", 
+  "16:9", 
+  "3:4", 
+  "4:3", 
+  "3:2", 
+  "2:3", 
+  "5:4", 
+  "4:5", 
+  "21:9"
+] as const;
+
+export type AspectRatioType = typeof ASPECT_RATIOS[number];
+
+export const SHOT_TYPES = [
+  "Ganzkörper", 
+  "Oberkörper", 
+  "Nahaufnahme Gesicht"
+] as const;
+
+export type ShotType = typeof SHOT_TYPES[number];
+
 export const ImageGenerationSchema = z.object({
   imageCount: z.array(z.number().min(1).max(40)).length(1),
   referenceImages: z.array(z.string()).max(3),
   background: z.enum(["white", "green", "custom"]),
   customBgImage: z.string().nullable().optional(),
-  aspectRatio: z.enum(["1:1", "9:16", "4:5", "3:4", "4:3", "16:9", "21:9"]),
-  shotType: z.enum(["Ganzkörper", "Oberkörper", "Nahaufnahme Gesicht"]),
+  aspectRatio: z.enum(ASPECT_RATIOS),
+  shotType: z.enum(SHOT_TYPES),
   customPrompt: z.string().optional(),
   collectionName: z.string().min(1, "Bitte gib einen Namen für die Sammlung ein"),
   collectionId: z.string().optional(),

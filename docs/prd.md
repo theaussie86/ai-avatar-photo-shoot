@@ -43,6 +43,10 @@ The **AI Avatar Photo Shoot App** is a web-based platform that allows users to c
 *   **Framework**: Next.js 16+ (App Router).
 *   **Styling**: Tailwind CSS v4.
 *   **Components**: Reusable UI components (Modals, Cards, Inputs) via shadcn ui.
+*   **State Management**:
+    *   **TanStack Query (React Query)**: **MANDATORY** for all client-server communication.
+    *   **Queries**: Wrap all data fetching.
+    *   **Mutations**: Wrap all server actions (create, update, delete).
 
 ### 4.2 Backend & Infrastructure
 *   **Runtime**: Next.js Server Actions (Node.js environment).

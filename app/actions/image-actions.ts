@@ -165,7 +165,11 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
           .update({ status: 'completed' })
           .eq('id', collection.id);
           
-      return generatedImages;
+      return {
+          success: true,
+          collectionId: collection.id,
+          images: generatedImages
+      };
 
   } catch (error: any) {
       console.error("Generation process failed:", error);
@@ -197,45 +201,69 @@ export async function deleteCollectionAction(collectionId: string) {
         throw new Error("Collection not found or access denied");
     }
 
-    // 1. Get all images for this collection
-    const { data: images } = await supabase
-        .from('images')
-        .select('storage_path')
-        .eq('collection_id', collectionId);
+    // 1. Aggressive Storage Cleanup
+    // We list all files in the collection folder and delete them.
+    // This is safer than relying on DB records which might be out of sync.
+    try {
+        console.log(`[Delete] Attempting to list files in folder: ${collectionId}`);
+        const { data: files, error: listError } = await supabase
+            .storage
+            .from('generated_images')
+            .list(collectionId);
 
-    if (images && images.length > 0) {
-        const filePaths = images.map(img => img.storage_path).filter(Boolean);
-        
-        if (filePaths.length > 0) {
-            // 2. Delete files from Storage
-            const { error: storageError } = await supabase
-                .storage
-                .from('generated_images')
-                .remove(filePaths);
-
-            if (storageError) {
-                console.error("Storage cleanup failed:", storageError);
-                // We proceed anyway to delete the DB records, or we could throw. 
-                // Usually best to try to clean up DB even if storage fails, or alert.
+        if (listError) {
+            console.error("[Delete] Storage list error:", listError);
+        } else {
+            console.log(`[Delete] Found ${files?.length || 0} files in storage folder`);
+            if (files && files.length > 0) {
+                 files.forEach(f => console.log(`   - Found file: ${f.name}`));
             }
         }
+
+        if (files && files.length > 0) {
+            // Robust path handling:
+            // 1. Use the name as is.
+            // 2. Also try decoded name if different (e.g. invalid url encoding in storage vs db)
+            // 3. NO leading slash.
+            
+            const pathsToDelete: string[] = [];
+            files.forEach(f => {
+                const rawPath = `${collectionId}/${f.name}`;
+                pathsToDelete.push(rawPath);
+                
+                // If name looks encoded, try adding the decoded version too just in case
+                try {
+                    const decodedName = decodeURIComponent(f.name);
+                    if (decodedName !== f.name) {
+                        pathsToDelete.push(`${collectionId}/${decodedName}`);
+                    }
+                } catch (e) {
+                    // ignore decoding errors
+                }
+            });
+
+            console.log(`[Delete] Deleting ${pathsToDelete.length} paths (may include duplicates/variants):`, pathsToDelete);
+            
+            const { error: removeError } = await supabase
+                .storage
+                .from('generated_images')
+                .remove(pathsToDelete);
+
+            if (removeError) {
+                console.error("[Delete] Storage remove error:", removeError);
+            } else {
+                console.log("[Delete] Storage remove successful");
+            }
+        } else {
+            console.log("[Delete] No files found in storage for deletion.");
+        }
+    } catch (err) {
+        console.error("[Delete] Unexpected error during storage cleanup:", err);
+        // Continue to DB deletion even if storage cleanup fails/throws
     }
 
-    // 3. Delete files from 'folder' 
-    // (If there are any left-over files not in DB but in the folder matching collectionId)
-    // List files in collection folder just in case
-    const { data: folderFiles } = await supabase
-        .storage
-        .from('generated_images')
-        .list(collectionId);
-        
-    if (folderFiles && folderFiles.length > 0) {
-        const folderPaths = folderFiles.map(f => `${collectionId}/${f.name}`);
-        await supabase.storage.from('generated_images').remove(folderPaths);
-    }
-
-    // 4. Delete DB Records
-    // Manual cleanup of images to be safe (if Cascade is not set/fails)
+    // 2. Delete DB Records
+    // Cascade delete should handle images if set up, but we manually delete to be sure
     await supabase.from('images').delete().eq('collection_id', collectionId);
 
     const { error } = await supabase
@@ -248,5 +276,52 @@ export async function deleteCollectionAction(collectionId: string) {
         throw new Error("Failed to delete collection: " + error.message);
     }
     
+
     return { success: true };
+}
+
+export async function deleteImageAction(imageId: string, storagePath: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+      throw new Error("Unauthorized");
+  }
+
+  // 1. Verify Ownership
+  const { data: image } = await supabase
+      .from('images')
+      .select('id, user_id')
+      .eq('id', imageId)
+      .eq('user_id', user.id)
+      .single();
+
+  if (!image) {
+      throw new Error("Image not found or access denied");
+  }
+
+  // 2. Delete from Storage
+  // We don't throw if it fails, just log it, identifying that cleaning up the DB is priority
+  if (storagePath) {
+      const { error: storageError } = await supabase
+          .storage
+          .from('generated_images')
+          .remove([storagePath]);
+      
+      if (storageError) {
+          console.error("Failed to remove file from storage:", storageError);
+      }
+  }
+
+  // 3. Delete from DB
+  const { error: dbError } = await supabase
+      .from('images')
+      .delete()
+      .eq('id', imageId);
+
+  if (dbError) {
+      throw new Error("Failed to delete image record: " + dbError.message);
+  }
+
+  return { success: true };
 }

@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Download, RefreshCw, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { ConfigurationPanel } from "@/components/avatar-creator/ConfigurationPanel"
 import { generateImagesAction, deleteCollectionAction } from "@/app/actions/image-actions"
+import { ImageGallery } from "@/components/avatar-creator/ImageGallery"
 import { ImageGenerationConfig } from "@/lib/schemas"
 import { Button } from "@/components/ui/button"
 
@@ -28,33 +30,41 @@ interface CollectionDetailClientProps {
 
 export function CollectionDetailClient({ collection, images }: CollectionDetailClientProps) {
   const router = useRouter()
-  const [isGenerating, setIsGenerating] = React.useState(false)
-
-  const handleGenerate = async (data: ImageGenerationConfig) => {
-    try {
-      setIsGenerating(true)
-      // Pass collectionId to add to this collection
-      await generateImagesAction({
+  // Image generation mutation
+  const generateMutation = useMutation({
+    mutationFn: async (data: ImageGenerationConfig) => {
+      return await generateImagesAction({
         ...data,
         collectionId: collection.id
       })
+    },
+    onSuccess: () => {
       router.refresh()
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error("Failed to generate:", error)
       alert("Fehler bei der Generierung")
-    } finally {
-      setIsGenerating(false)
     }
-  }
+  })
 
-  const handleDelete = async () => {
-    try {
-        await deleteCollectionAction(collection.id);
-        router.push("/collections");
-    } catch (error) {
-        console.error("Delete failed:", error);
-        alert("Fehler beim Löschen");
+  // Use mutation for delete
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+       await deleteCollectionAction(collection.id);
+    },
+    onSuccess: () => {
+       // Force a hard refresh or redirect to ensure list state is clean
+       router.push("/collections");
+       router.refresh();
+    },
+    onError: (error) => {
+       console.error("Delete failed:", error);
+       alert("Fehler beim Löschen");
     }
+  })
+
+  const handleGenerate = (data: ImageGenerationConfig) => {
+    generateMutation.mutate(data)
   }
 
   return (
@@ -79,6 +89,7 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
                     variant="destructive" 
                     size="sm" 
                     className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
+                    disabled={deleteMutation.isPending}
                 >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Shooting löschen
@@ -93,8 +104,15 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white border-none">
-                    Löschen bestätigen
+                  <AlertDialogAction 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        deleteMutation.mutate();
+                    }} 
+                    className="bg-red-600 hover:bg-red-700 text-white border-none"
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "Lösche..." : "Löschen bestätigen"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -105,7 +123,7 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
         <div>
             <ConfigurationPanel 
                 onGenerate={handleGenerate}
-                isPending={isGenerating}
+                isPending={generateMutation.isPending}
                 hasGeneratedImages={true}
                 collectionId={collection.id}
                 initialValues={{
@@ -121,24 +139,7 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
         {/* Existing Images Grid */}
         <div className="border-t border-white/10 pt-8">
             <h2 className="text-xl font-semibold mb-6">Generierte Bilder</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {images.map((img) => (
-                    <div key={img.id} className="relative aspect-square group rounded-lg overflow-hidden border border-white/10 bg-gray-900">
-                        <img 
-                            src={img.url} 
-                            alt="Generated" 
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" asChild>
-                                <a href={img.url} download target="_blank" rel="noopener noreferrer">
-                                    <Download className="w-4 h-4" />
-                                </a>
-                            </Button>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <ImageGallery images={images} />
         </div>
 
       </div>

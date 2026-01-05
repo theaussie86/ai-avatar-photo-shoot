@@ -48,3 +48,31 @@ export async function updateGeminiApiKey(data: ApiKeyConfig) {
   revalidatePath("/");
   return { success: true };
 }
+
+export async function deleteGeminiApiKey() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ 
+      gemini_api_key: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("Error deleting API key:", error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/");
+  return { success: true };
+}

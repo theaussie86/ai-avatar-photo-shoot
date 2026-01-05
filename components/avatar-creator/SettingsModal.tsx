@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Settings, Lock, LogOut, Loader2, CheckCircle2 } from "lucide-react"
+import { Settings, Lock, LogOut, Loader2, CheckCircle2, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { updateGeminiApiKey } from "@/app/actions/profile-actions"
+import { updateGeminiApiKey, deleteGeminiApiKey } from "@/app/actions/profile-actions"
 import { ApiKeySchema } from "@/lib/schemas"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
@@ -67,6 +67,21 @@ export function SettingsModal({ children }: SettingsModalProps) {
     onError: (error) => {
        console.error("Save error:", error)
        setSaveStatus("error")
+    }
+  })
+
+  // 3. Mutation for Deleting Key
+  const deleteMutation = useMutation({
+    mutationFn: deleteGeminiApiKey,
+    onSuccess: (result) => {
+      if (result.success) {
+        setApiKey("")
+        setHasStoredKey(false)
+        queryClient.invalidateQueries({ queryKey: ['profile'] })
+      }
+    },
+    onError: (error) => {
+      console.error("Delete error:", error)
     }
   })
 
@@ -127,26 +142,44 @@ export function SettingsModal({ children }: SettingsModalProps) {
                 </span>
               )}
             </div>
-            <div className="relative">
-              <Input
-                id="apiKey"
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value)
-                  if (saveStatus !== "idle") setSaveStatus("idle")
-                }}
-                onFocus={() => {
-                  if (apiKey === "••••••••••••••••") {
-                    setApiKey("")
-                  }
-                }}
-                placeholder={hasStoredKey ? "••••••••••••••••" : "Gib deinen API Key ein..."}
-                className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-indigo-500 pr-10"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
-                <Lock className="h-4 w-4" />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => {
+                    setApiKey(e.target.value)
+                    if (saveStatus !== "idle") setSaveStatus("idle")
+                  }}
+                  onFocus={() => {
+                    if (apiKey === "••••••••••••••••") {
+                      setApiKey("")
+                    }
+                  }}
+                  placeholder={hasStoredKey ? "••••••••••••••••" : "Gib deinen API Key ein..."}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-indigo-500 pr-10"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <Lock className="h-4 w-4" />
+                </div>
               </div>
+              
+              {hasStoredKey && (
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="shrink-0 bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
             </div>
             <p className="text-xs text-zinc-500">
               Dein API Key wird verschlüsselt in der Datenbank gespeichert.
