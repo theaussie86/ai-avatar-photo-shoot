@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { generateImagesAction } from "@/app/actions/image-actions";
 
+import { ImageGenerationConfig } from "@/lib/schemas";
+
 export default function Home() {
   const [generatedImages, setGeneratedImages] = React.useState<string[]>([])
   const router = useRouter()
@@ -33,8 +35,8 @@ export default function Home() {
   }, [router, supabase])
 
 
-  const handleGenerate = () => {
-    mutation.mutate()
+  const handleGenerate = (data: ImageGenerationConfig) => {
+    mutation.mutate(data)
   }
 
   const handleReset = () => {

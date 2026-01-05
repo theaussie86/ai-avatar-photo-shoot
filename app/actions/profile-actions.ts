@@ -5,7 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 import { encrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
-export async function updateGeminiApiKey(apiKey: string) {
+import { ApiKeyConfig, ApiKeySchema } from "@/lib/schemas";
+
+export async function updateGeminiApiKey(data: ApiKeyConfig) {
+  const result = ApiKeySchema.safeParse(data);
+
+  if (!result.success) {
+      return { success: false, error: "Validation failed" };
+  }
+
+  const { apiKey } = result.data;
+
   const supabase = await createClient();
 
   const {

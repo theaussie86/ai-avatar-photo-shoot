@@ -16,10 +16,11 @@ import { Input } from "@/components/ui/input"
     SelectValue,
   } from "@/components/ui/select"
   import { cn } from "@/lib/utils"
+  import { ImageGenerationSchema, ImageGenerationConfig } from "@/lib/schemas"
   
   interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
-  onGenerate?: () => void;
+  onGenerate?: (data: ImageGenerationConfig) => void;
   onReset?: () => void;
   onDownloadAll?: () => void;
   isPending?: boolean;
@@ -71,6 +72,31 @@ export function ConfigurationPanel({
 
   const removeImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index))
+  }
+
+
+
+  const handleGenerateClick = () => {
+     if (!onGenerate) return;
+
+     const data: ImageGenerationConfig = {
+        imageCount,
+        referenceImages,
+        background: background as any, // Cast for safety if string doesn't match exactly yet
+        customBgImage,
+        aspectRatio: aspectRatio as any,
+        shotType: shotType as any,
+        customPrompt
+     }
+
+     const validation = ImageGenerationSchema.safeParse(data);
+     
+     if (!validation.success) {
+        alert("Bitte überprüfe deine Eingaben: " + validation.error.message); // Simple alert for now
+        return;
+     }
+
+     onGenerate(validation.data);
   }
 
   return (
@@ -260,7 +286,7 @@ export function ConfigurationPanel({
            <Button 
              variant="neon" 
              className="w-full col-span-full" 
-             onClick={onGenerate}
+             onClick={handleGenerateClick}
              disabled={isPending}
            >
              {isPending ? "Generiere..." : "Bilder generieren"}
@@ -270,7 +296,7 @@ export function ConfigurationPanel({
              <Button 
                variant="neon" 
                className="w-full" 
-               onClick={onGenerate}
+               onClick={handleGenerateClick}
                disabled={isPending}
              >
                {isPending ? "Generiere..." : "+ Bilder dazu generieren"}

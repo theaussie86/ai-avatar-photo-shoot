@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label"
 import { Settings, Lock, LogOut, Loader2, CheckCircle2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { updateGeminiApiKey } from "@/app/actions/profile-actions"
+import { ApiKeySchema } from "@/lib/schemas"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 export function SettingsModal() {
   const [apiKey, setApiKey] = React.useState("")
@@ -22,51 +24,76 @@ export function SettingsModal() {
   const [userEmail, setUserEmail] = React.useState<string | null>(null)
   const [hasStoredKey, setHasStoredKey] = React.useState(false)
 
+  const queryClient = useQueryClient()
   const supabase = createClient()
 
-  React.useEffect(() => {
-    const fetchProfile = async () => {
+  // 1. Query for User Profile
+  const { data: profileData, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserEmail(user.email ?? null)
-        
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("gemini_api_key")
-          .eq("id", user.id)
-          .single()
+      if (!user) return null
 
-        if (profile?.gemini_api_key) {
-          setHasStoredKey(true)
-          setApiKey("••••••••••••••••")
-        }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("gemini_api_key")
+        .eq("id", user.id)
+        .single()
+      
+      return {
+        email: user.email,
+        hasKey: !!profile?.gemini_api_key
       }
     }
-    fetchProfile()
-  }, [supabase])
+  })
+
+  // 2. Mutation for Updating Key
+  const mutation = useMutation({
+    mutationFn: updateGeminiApiKey,
+    onSuccess: (result) => {
+       if (result.success) {
+         setSaveStatus("success")
+         queryClient.invalidateQueries({ queryKey: ['profile'] })
+         setApiKey("••••••••••••••••")
+         setTimeout(() => setSaveStatus("idle"), 3000)
+       } else {
+         setSaveStatus("error")
+       }
+    },
+    onError: (error) => {
+       console.error("Save error:", error)
+       setSaveStatus("error")
+    }
+  })
+
+  // Sync state with query data
+  React.useEffect(() => {
+    if (profileData?.hasKey) {
+       setHasStoredKey(true)
+       // Set initial placeholder if key exists
+       if (!apiKey) setApiKey("••••••••••••••••")
+    } else {
+       setHasStoredKey(false)
+    }
+    if (profileData?.email) {
+       setUserEmail(profileData.email)
+    }
+  }, [profileData]) // Effect only runs when data changes
+
 
   const handleSave = async () => {
     if (!apiKey || apiKey === "••••••••••••••••") return
 
-    setIsSaving(true)
     setSaveStatus("idle")
     
-    try {
-      const result = await updateGeminiApiKey(apiKey)
-      if (result.success) {
-        setSaveStatus("success")
-        setHasStoredKey(true)
-        setApiKey("••••••••••••••••")
-        setTimeout(() => setSaveStatus("idle"), 3000)
-      } else {
+    // Validate first
+    const validation = ApiKeySchema.safeParse({ apiKey })
+    if (!validation.success) {
         setSaveStatus("error")
-      }
-    } catch (error) {
-      console.error("Save error:", error)
-      setSaveStatus("error")
-    } finally {
-      setIsSaving(false)
+        return
     }
+
+    mutation.mutate({ apiKey })
   }
 
   return (
@@ -121,10 +148,10 @@ export function SettingsModal() {
             
             <Button 
               onClick={handleSave} 
-              disabled={isSaving || !apiKey || apiKey === "••••••••••••••••"}
+              disabled={mutation.isPending || !apiKey || apiKey === "••••••••••••••••"}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-[0.98]"
             >
-              {isSaving ? (
+              {mutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Speichern...
