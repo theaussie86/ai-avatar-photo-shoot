@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { redirect } from "next/navigation";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js"; // For background tasks
 
 export async function generateImagesAction(data: ImageGenerationConfig) {
   const validatedData = validateImageGenerationConfig(data);
@@ -89,11 +90,16 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
     collection = newCollection;
   }
 
+  /* 
+   * UPDATED FLOW: 
+   * 1. Create DB records with 'pending' status.
+   * 2. Trigger Edge Function for each image (Fire-and-forget / Background).
+   * 3. UI will poll for updates.
+   */
+
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  console.log("Starting generation for collection:", collection.id);
-
-  const generatedImages: string[] = [];
+  console.log("Starting generation session for collection:", collection.id);
 
   try {
       const imagesToGenerate = validatedData.imageCount[0];
@@ -103,76 +109,60 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
       // Shuffle poses to get random ones
       const shuffledPoses = [...availablePoses].sort(() => 0.5 - Math.random());
       
-      // Pre-fetch reference images once if they are the same for all (optimization)
-      const referenceImageParts = await processReferenceImages(validatedData.referenceImages || []);
+      // Use Service Role Key for Backend-to-Backend trusted communication
+      // For background tasks, we use the KEY directly in the task, so we don't need it here necessarily, 
+      // but good to check if environment is set up.
+      // const serviceRoleKey = process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      for (let i = 0; i < imagesToGenerate; i++) {
+      // if (!serviceRoleKey) {
+      //    console.error("Missing SERVICE_ROLE_KEY! Background tasks will fail.");
+      // }
+
+       for (let i = 0; i < imagesToGenerate; i++) {
         // 1. Select a unique pose
         const pose = selectPose(validatedData.shotType, i, shuffledPoses);
         
-        const logMsg = validatedData.customPrompt 
-            ? `using Custom Prompt (overriding pose "${pose}")` 
-            : `using pose: "${pose}"`;
-        console.log(`Generating image ${i + 1}/${imagesToGenerate}... ${logMsg}`);
-        
-        // 2. Refine Prompt Individually
+        // 2. Refine Prompt (Client-side / Server Action side)
         const finalPrompt = await refinePrompt(genAI, validatedData, pose);
-        console.log(`   ✨ Refined Prompt [${i+1}]:`, finalPrompt.substring(0, 100) + "...");
-
-        // 3. Generate Image using Gemini 3
-        console.log(`   🎨 Sending to Gemini 3...`);
         
-        let base64Data: string;
-        try {
-            base64Data = await generateImage(genAI, finalPrompt, referenceImageParts, validatedData.aspectRatio);
-        } catch (error: any) {
-             console.error(`   ❌ Generation failed for image ${i+1}:`, error);
-             throw error; 
-        }
-
-        const buffer = Buffer.from(base64Data, 'base64');
-        const fileName = `${collection.id}/${crypto.randomUUID()}.png`;
-        
-        const publicUrl = await uploadGeneratedImage(
-            supabase, 
-            'generated_images', 
-            fileName, 
-            buffer
-        );
-
-        const { error: insertError } = await supabase
+        // 3. Create Placeholder in DB with FULL METADATA
+        const { data: imageRecord, error: insertError } = await supabase
             .from('images')
             .insert({
                 collection_id: collection.id,
                 user_id: user.id,
-                url: publicUrl,
-                storage_path: fileName,
-                status: 'completed',
+                status: 'pending',
                 type: 'generated',
-                prompt: finalPrompt 
-            });
+                storage_path: 'pending',
+                url: '',
+                // Store all generation params in metadata so we can debug/retry if needed
+                metadata: {
+                    prompt: finalPrompt,
+                    pose: pose,
+                    config: validatedData, 
+                }
+            })
+            .select()
+            .single();
 
         if (insertError) {
-             console.error(`Failed to insert image record for ${fileName}:`, insertError);
-             // We continue to next image but log this critical error
-             // Ideally we might want to cleanup the file we just uploaded?
-             // For now just logging to ensure we know why it's missing
+             console.error(`Failed to insert pending image record:`, insertError);
              throw new Error("Database insert failed: " + insertError.message);
         }
-            
-        generatedImages.push(publicUrl);
+
+        // 4. Trigger Async Generation Task (Fire & Forget)
+        // We do NOT await this. It runs in the background.
+        console.log(`[Action] Triggering Async Task for Image ${imageRecord.id}`);
+        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData).catch(err => {
+            console.error(`Unhandled error in background task for ${imageRecord.id}:`, err);
+        });
+        
       }
 
-      // Update Collection
-      await supabase
-          .from('collections')
-          .update({ status: 'completed' })
-          .eq('id', collection.id);
-          
       return {
           success: true,
           collectionId: collection.id,
-          images: generatedImages
+          images: [], // UI will fetch them via polling
       };
 
   } catch (error: any) {
@@ -182,18 +172,122 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
           .update({ status: 'failed' })
           .eq('id', collection.id);
       throw error;
-  } finally {
-      // Cleanup temporary reference images if a session ID was provided
-      if (validatedData.tempStorageId) {
-          const tempPath = `${user.id}/temp_references/${validatedData.tempStorageId}`;
-          console.log(`[Cleanup] Removing temp references at: ${tempPath}`);
-          try {
-              await deleteFolder(supabase, 'generated_images', tempPath);
-          } catch (cleanupError) {
-              console.error("Failed to cleanup temp storage:", cleanupError);
-          }
-      }
   }
+}
+
+// Internal Background Task (Not exported as action)
+async function generateImageTask(
+    imageId: string, 
+    apiKey: string, 
+    prompt: string, 
+    config: ImageGenerationConfig
+) {
+    console.log(`[Task ${imageId}] Starting generation...`);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    // User requested to use Anon Key. Note: This assumes RLS allows anon updates or policies are open.
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+    if (!supabaseUrl) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+    if (!supabaseKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    
+    // Create Client for background operations
+    const supabase = createSupabaseAdmin(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false }
+    });
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const referenceImageUrls = config.referenceImages || [];
+
+        // 1. Prepare Reference Images
+        const parts: any[] = [{ text: prompt }];
+        
+        if (referenceImageUrls.length > 0) {
+           console.log(`[Task ${imageId}] Fetching ${referenceImageUrls.length} references`);
+           const imagePromises = referenceImageUrls.map(async (url) => {
+              try {
+                 const response = await fetch(url);
+                 if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+                 const arrayBuffer = await response.arrayBuffer();
+                 const buffer = Buffer.from(arrayBuffer);
+                 return {
+                     inlineData: {
+                         data: buffer.toString('base64'),
+                         mimeType: response.headers.get('content-type') || 'image/jpeg'
+                     }
+                 };
+              } catch (e) {
+                 console.error("Failed to load reference image:", e);
+                 return null;
+              }
+           });
+           
+           const loadedImages = await Promise.all(imagePromises);
+           // Filter nulls
+           const validImages = loadedImages.filter(img => img !== null);
+           parts.push(...validImages);
+        }
+
+        // 2. Generate
+        console.log(`[Task ${imageId}] Calling Gemini...`);
+        const proModel = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash-exp" }); 
+        
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" }); 
+        
+        const result = await model.generateContent({
+             contents: [{ role: 'user', parts: parts }],
+             generationConfig: {
+                 responseModalities: ["IMAGE"],
+                 imageConfig: {
+                    aspectRatio: config.aspectRatio
+                 }
+             } as any
+        });
+
+        const candidate = result.response.candidates?.[0];
+        const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData);
+
+        if (!imagePart || !imagePart.inlineData) {
+             throw new Error("No image generated. FinishReason: " + candidate?.finishReason);
+        }
+
+        const base64Data = imagePart.inlineData.data;
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // 3. Upload
+        console.log(`[Task ${imageId}] Uploading...`);
+        // Fetch collection_id if needed, or assume it's set
+        const { data: img } = await supabase.from('images').select('collection_id').eq('id', imageId).single();
+        const collectionId = img?.collection_id || 'unknown';
+        
+        const storagePath = `${collectionId}/${crypto.randomUUID()}.png`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('generated_images')
+            .upload(storagePath, buffer, { contentType: 'image/png' });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('generated_images')
+            .getPublicUrl(storagePath);
+
+        // 4. Update DB
+        console.log(`[Task ${imageId}] Done! Updating DB.`);
+        await supabase.from('images').update({
+            status: 'completed',
+            url: publicUrl,
+            storage_path: storagePath
+        }).eq('id', imageId);
+
+    } catch (err: any) {
+        console.error(`[Task ${imageId}] FAILED:`, err);
+        await supabase.from('images').update({
+            status: 'failed',
+            // error: err.message // If we had an error column
+        }).eq('id', imageId);
+    }
+
 }
 
 export async function deleteCollectionAction(collectionId: string) {
@@ -260,7 +354,7 @@ export async function deleteImageAction(imageId: string, storagePath: string) {
 
   // 2. Delete from Storage
   // We don't throw if it fails, just log it, identifying that cleaning up the DB is priority
-  if (storagePath) {
+  if (storagePath && storagePath !== 'pending') {
       const { error: storageError } = await supabase
           .storage
           .from('generated_images')
@@ -317,8 +411,89 @@ export async function deleteCollectionImagesAction(collectionId: string) {
         throw new Error("Failed to delete images: " + dbError.message);
     }
 
-    // Update collection status back to initial or similar if needed? 
-    // Maybe not necessary as we can just add new images.
-    
     return { success: true };
+}
+
+export async function retriggerImageAction(imageId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // 1. Fetch Image & Verify Ownership
+    const { data: image } = await supabase
+        .from('images')
+        .select('*')
+        .eq('id', imageId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!image) {
+        throw new Error("Image not found");
+    }
+
+    // 2. Get API Key (re-fetch needed as we are in a new action scope)
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('gemini_api_key')
+        .eq('id', user.id)
+        .single();
+    
+    if (!profile?.gemini_api_key) throw new Error("API Key not found");
+    const apiKey = decrypt(profile.gemini_api_key);
+    if (!apiKey) throw new Error("Failed to decrypt API key");
+
+    // 3. Reset Status
+    await supabase.from('images').update({ 
+        status: 'pending',
+        storage_path: 'pending' 
+    }).eq('id', imageId);
+
+    // 4. Trigger Async Task
+    // Extract metadata
+    const meta = image.metadata as any;
+    if (!meta || !meta.prompt || !meta.config) {
+        throw new Error("Cannot retrigger: Missing generation metadata.");
+    }
+    
+    console.log(`[Retrigger] Restarting task for ${imageId}`);
+    generateImageTask(imageId, apiKey, meta.prompt, meta.config).catch(console.error);
+
+    return { success: true };
+}
+
+export async function getImageAction(imageId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const { data: image, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('id', imageId)
+        .eq('user_id', user.id)
+        .single();
+    
+    if (error) throw new Error(error.message);
+    return image;
+}
+
+export async function getCollectionImagesAction(collectionId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const { data: images, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('collection_id', collectionId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+    
+    if (error) throw new Error(error.message);
+    return images;
 }

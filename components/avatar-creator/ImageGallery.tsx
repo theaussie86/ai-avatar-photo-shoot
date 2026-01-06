@@ -1,11 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Download, Trash2, Maximize2, X, Search, ZoomIn, ZoomOut } from "lucide-react"
+import { Download, Trash2, Maximize2, X, Search, ZoomIn, ZoomOut, RefreshCw } from "lucide-react"
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { deleteImageAction } from "@/app/actions/image-actions"
 import { useRouter } from "next/navigation"
+import { ImageCard } from "@/components/avatar-creator/ImageCard"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useDownloadImage } from "@/hooks/use-download-image"
 
 import { 
   AlertDialog,
@@ -24,18 +27,16 @@ interface Image {
   url: string
   storage_path: string
   created_at?: string
+  status?: string
+  collection_id?: string
 }
 
 interface ImageGalleryProps {
   images?: Image[]
+  showRetry?: boolean
+  onRetrigger?: (id: string) => void
 }
 
-import { useMutation } from "@tanstack/react-query"
-import { useDownloadImage } from "@/hooks/use-download-image"
-
-// ... imports remain the same
-
-// ... existing imports ...
 import {
   Carousel,
   CarouselContent,
@@ -47,7 +48,7 @@ import {
 
 export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const router = useRouter()
-  // const [deletingId, setDeletingId] = React.useState<string | null>(null) // No longer needed, mutation has state
+  const queryClient = useQueryClient()
   const [imageToDelete, setImageToDelete] = React.useState<Image | null>(null)
   const [isOpen, setIsOpen] = React.useState(false)
   const [initialIndex, setInitialIndex] = React.useState(0)
@@ -66,12 +67,16 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
     mutationFn: async (image: Image) => {
         await deleteImageAction(image.id, image.storage_path)
     },
-    onSuccess: () => {
-        router.refresh()
+    onSuccess: (data, variables) => {
+        // Invalidate the collection list using the collection_id from the deleted image
+        // Assuming images have collection_id. If not, we might need to rely on parent re-rendering.
+        // But better to invalidate if we can.
+        if (variables.collection_id) {
+            queryClient.invalidateQueries({ queryKey: ['collection-images', variables.collection_id] })
+        } else {
+             router.refresh()
+        }
         setImageToDelete(null)
-        // If we deleted the current image, ensuring the carousel stays consistent might be tricky without full reload
-        // But router.refresh should handle data updates.
-        // We might want to close dialog if empty, but images prop update will handle that?
     },
     onError: (error) => {
         console.error("Failed to delete image:", error)
@@ -122,6 +127,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   }
 
   const openGallery = (index: number) => {
+      if (images[index]?.status === 'pending') return;
       setInitialIndex(index)
       setIsOpen(true)
   }
@@ -168,54 +174,11 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {images.map((img, idx) => (
-              <div 
-                key={img.id} 
-                className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-muted/10 cursor-zoom-in"
+              <ImageCard 
+                key={img.id}
+                initialImage={img}
                 onClick={() => openGallery(idx)}
-              >
-                <img 
-                  src={img.url} 
-                  alt={`Generated ${idx + 1}`} 
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                />
-                {/* Overlay on Hover */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-mono text-white/70 bg-black/40 px-1.5 py-0.5 rounded">
-                      #{idx + 1}
-                    </span>
-                    {/* Delete Button */}
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-red-600 rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          e.preventDefault()
-                          setImageToDelete(img)
-                        }}
-                        disabled={deleteMutation.isPending}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    {/* Download Button */}
-                    <Button
-                        variant="secondary"
-                        size="icon"
-                        className="h-8 w-8 rounded-full bg-white/20 hover:bg-white text-white hover:text-black border-none"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDownload(img.url, img.id)
-                        }}
-                    >
-                        <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              />
         ))}
       </div>
 

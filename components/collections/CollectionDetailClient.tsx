@@ -1,17 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Download, RefreshCw, Trash2 } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { ConfigurationPanel } from "@/components/avatar-creator/ConfigurationPanel"
-import { generateImagesAction, deleteCollectionAction } from "@/app/actions/image-actions"
+import { generateImagesAction, deleteCollectionAction, getCollectionImagesAction, deleteCollectionImagesAction } from "@/app/actions/image-actions"
 import { ImageGallery } from "@/components/avatar-creator/ImageGallery"
 import { ImageGenerationConfig } from "@/lib/schemas"
 import { Button } from "@/components/ui/button"
-import { useDownloadImage } from "@/hooks/use-download-image"
-import { deleteCollectionImagesAction } from "@/app/actions/image-actions"
 import JSZip from "jszip"
 
 import {
@@ -31,8 +29,17 @@ interface CollectionDetailClientProps {
   images: any[]
 }
 
-export function CollectionDetailClient({ collection, images }: CollectionDetailClientProps) {
+export function CollectionDetailClient({ collection, images: initialImages }: CollectionDetailClientProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+
+  // React Query for Images List
+  const { data: images } = useQuery({
+      queryKey: ['collection-images', collection.id],
+      queryFn: () => getCollectionImagesAction(collection.id),
+      initialData: initialImages,
+  })
+
   // Image generation mutation
   const generateMutation = useMutation({
     mutationFn: async (data: ImageGenerationConfig) => {
@@ -42,7 +49,8 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
       })
     },
     onSuccess: () => {
-      router.refresh()
+      // Invalidate to fetch new pending images
+      queryClient.invalidateQueries({ queryKey: ['collection-images', collection.id] })
     },
     onError: (error) => {
       console.error("Failed to generate:", error)
@@ -72,23 +80,21 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
         await deleteCollectionImagesAction(collection.id)
     },
     onSuccess: () => {
-        router.refresh()
+        queryClient.invalidateQueries({ queryKey: ['collection-images', collection.id] })
     },
     onError: (error) => {
         console.error("Failed to delete all images:", error)
         alert("Fehler beim Löschen aller Bilder")
     }
   })
-
-
-
+  
   // State for delete all dialog
   const [isDeleteAllOpen, setIsDeleteAllOpen] = React.useState(false)
 
   const [isDownloading, setIsDownloading] = React.useState(false)
 
   const handleDownloadAll = async () => {
-      if (images.length === 0) return
+      if (!images || images.length === 0) return
       setIsDownloading(true)
       
       try {
@@ -96,7 +102,7 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
           const folder = zip.folder(collection.name || "collection")
 
           // Fetch all images
-          const promises = images.map(async (img, index) => {
+          const promises = images.map(async (img: any, index: number) => {
               try {
                   const response = await fetch(img.url)
                   const blob = await response.blob()
@@ -130,8 +136,9 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
       }
   }
 
+  // Reset polling when new generation starts
   const handleGenerate = (data: ImageGenerationConfig) => {
-    generateMutation.mutate(data)
+    generateMutation.mutate(data);
   }
 
   return (
@@ -146,44 +153,46 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
                 </Link>
                 <h1 className="text-3xl font-bold text-white">{collection.name}</h1>
                 <p className="text-gray-400">
-                    {images.length} Bilder • {collection.type} • {collection.status}
+                    {images?.length || 0} Bilder • {collection.type} • {collection.status}
                 </p>
             </div>
             
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
-                    disabled={deleteMutation.isPending}
-                >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Shooting löschen
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="bg-gray-900 border-white/10 text-white">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Bist du sicher?</AlertDialogTitle>
-                  <AlertDialogDescription className="text-gray-400">
-                    Diese Aktion kann nicht rückgängig gemacht werden. Alle generierten Bilder und das Shooting werden dauerhaft gelöscht.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={(e) => {
-                        e.preventDefault();
-                        deleteMutation.mutate();
-                    }} 
-                    className="bg-red-600 hover:bg-red-700 text-white border-none"
-                    disabled={deleteMutation.isPending}
-                  >
-                    {deleteMutation.isPending ? "Lösche..." : "Löschen bestätigen"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex gap-2">
+                <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
+                        disabled={deleteMutation.isPending}
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Shooting löschen
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-gray-900 border-white/10 text-white">
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Bist du sicher?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-gray-400">
+                        Diese Aktion kann nicht rückgängig gemacht werden. Alle generierten Bilder und das Shooting werden dauerhaft gelöscht.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            deleteMutation.mutate();
+                        }} 
+                        className="bg-red-600 hover:bg-red-700 text-white border-none"
+                        disabled={deleteMutation.isPending}
+                    >
+                        {deleteMutation.isPending ? "Lösche..." : "Löschen bestätigen"}
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+                </AlertDialog>
+            </div>
 
 
             {/* Delete All Images Dialog */}
@@ -220,7 +229,7 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
                 onDownloadAll={handleDownloadAll}
                 onDeleteAll={() => setIsDeleteAllOpen(true)}
                 isPending={generateMutation.isPending || deleteAllImagesMutation.isPending || isDownloading}
-                hasGeneratedImages={images.length > 0}
+                hasGeneratedImages={images && images.length > 0}
                 collectionId={collection.id}
                 initialValues={{
                     collectionName: collection.name,
@@ -235,7 +244,9 @@ export function CollectionDetailClient({ collection, images }: CollectionDetailC
         {/* Existing Images Grid */}
         <div className="border-t border-white/10 pt-8">
             <h2 className="text-xl font-semibold mb-6">Generierte Bilder</h2>
-            <ImageGallery images={images} />
+            <ImageGallery 
+                images={images || []} 
+            />
         </div>
 
       </div>
