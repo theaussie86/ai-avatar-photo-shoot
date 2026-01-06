@@ -38,7 +38,7 @@ describe('updateGeminiApiKey Server Action', () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null });
     mockSupabase.eq.mockResolvedValue({ error: null });
 
-    const result = await updateGeminiApiKey('new-api-key');
+    const result = await updateGeminiApiKey({ apiKey: 'new-api-key' });
 
     expect(result).toEqual({ success: true });
     expect(encrypt).toHaveBeenCalledWith('new-api-key');
@@ -54,14 +54,14 @@ describe('updateGeminiApiKey Server Action', () => {
   it('should throw an error if the user is not authenticated', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
 
-    await expect(updateGeminiApiKey('some-key')).rejects.toThrow('Unauthorized');
+    await expect(updateGeminiApiKey({ apiKey: 'some-key' })).rejects.toThrow('Unauthorized');
   });
 
   it('should return failure if Supabase update fails', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null });
     mockSupabase.eq.mockResolvedValue({ error: { message: 'DB Error' } });
 
-    const result = await updateGeminiApiKey('some-key');
+    const result = await updateGeminiApiKey({ apiKey: 'some-key' });
 
     expect(result).toEqual({ success: false, error: 'DB Error' });
   });

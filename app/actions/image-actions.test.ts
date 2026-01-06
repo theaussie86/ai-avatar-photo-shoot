@@ -17,6 +17,10 @@ vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: vi.fn(),
 }));
 
+vi.mock('@/lib/encryption', () => ({
+  decrypt: vi.fn().mockReturnValue('mock-api-key'),
+}));
+
 // Mock global fetch
 const globalFetch = global.fetch;
 global.fetch = vi.fn();
@@ -65,7 +69,14 @@ describe('Image Actions', () => {
             getGenerativeModel: vi.fn().mockReturnValue({
                 ...mockGenAIModel,
                 generateContent: vi.fn().mockResolvedValue({
-                    response: { text: () => "Mocked refined prompt" }
+                    response: { 
+                        text: () => "Mocked refined prompt",
+                        candidates: [{
+                            content: {
+                                parts: [{ inlineData: { data: 'mock-base64-image' } }]
+                            }
+                        }]
+                    }
                 })
             })
         };
@@ -204,8 +215,8 @@ describe('Image Actions', () => {
         expect(result.success).toBe(true);
         expect(result.collectionId).toBe('new-collection-id');
         expect(result.images).toHaveLength(1);
-        expect(GoogleGenerativeAI).toHaveBeenCalledWith('key');
-        expect(global.fetch).toHaveBeenCalled(); 
+        expect(GoogleGenerativeAI).toHaveBeenCalledWith('mock-api-key');
+        expect(global.fetch).not.toHaveBeenCalled(); 
     });
   });
 

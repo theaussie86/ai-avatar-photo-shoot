@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, AspectRatioType, ShotType } from "@/lib/schemas"
+import { createClient } from "@/lib/supabase/client"
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -41,6 +42,7 @@ export function ConfigurationPanel({
     const router = useRouter()
     const [imageCount, setImageCount] = React.useState(initialValues?.imageCount || [1])
     const [referenceImages, setReferenceImages] = React.useState<string[]>(initialValues?.referenceImages || [])
+    const [referenceFiles, setReferenceFiles] = React.useState<File[]>([])
     const [background, setBackground] = React.useState<"white" | "green" | "custom">(initialValues?.background || "white")
     const [customBgImage, setCustomBgImage] = React.useState<string | null>(initialValues?.customBgImage || null)
     
@@ -63,6 +65,7 @@ export function ConfigurationPanel({
       const file = e.target.files[0]
       const imageUrl = URL.createObjectURL(file)
       setReferenceImages([...referenceImages, imageUrl])
+      setReferenceFiles([...referenceFiles, file])
       
       // Reset input so same file can be selected again if needed
       e.target.value = ''
@@ -80,21 +83,77 @@ export function ConfigurationPanel({
 
   const removeImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index))
+    setReferenceFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleGenerateClick = async () => {
      if (!onGenerate) return;
 
+     // Upload reference images to Supabase Storage
+     const supabase = createClient();
+     
+     // Get current user for folder path
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) {
+         alert("Bitte melde dich an, um Bilder zu generieren.");
+         return;
+     }
+
+     const uploadedImageUrls: string[] = [];
+
+     // Generate a unique session ID for this batch of uploads to allow easy cleanup
+     // Note: crypto.randomUUID() is available in secure contexts (https) and localhost
+     const tempSessionId = crypto.randomUUID();
+
+     // If we have files to upload
+     if (referenceFiles.length > 0) {
+         try {
+             const uploadPromises = referenceFiles.map(async (file) => {
+                 const fileExt = file.name.split('.').pop();
+                 // Group by session ID: generated_images/{userId}/temp_references/{sessionId}/{randomName}
+                 // We put it under the user's folder so standard RLS policies (user can write to own folder) work.
+                 const fileName = `${user.id}/temp_references/${tempSessionId}/${crypto.randomUUID()}.${fileExt}`;
+                 
+                 const { error: uploadError } = await supabase.storage
+                    .from('generated_images')
+                    .upload(fileName, file);
+
+                 if (uploadError) throw uploadError;
+
+                 const { data: { publicUrl } } = supabase.storage
+                    .from('generated_images')
+                    .getPublicUrl(fileName);
+                 
+                 return publicUrl;
+             });
+
+             const urls = await Promise.all(uploadPromises);
+             uploadedImageUrls.push(...urls);
+
+         } catch (error) {
+             console.error("Upload failed", error);
+             alert("Fehler beim Hochladen der Referenzbilder.");
+             return;
+         }
+     }
+    
+     // Combine uploaded URLs with any pre-existing remote URLs (filtering out local blobs)
+     const finalReferenceImages = [
+         ...referenceImages.filter(url => !url.startsWith('blob:')), 
+         ...uploadedImageUrls
+     ];
+
      const data: ImageGenerationConfig = {
         imageCount,
-        referenceImages,
+        referenceImages: finalReferenceImages,
         background: background as any,
         customBgImage,
         aspectRatio: aspectRatio as any,
         shotType: shotType as any,
         customPrompt,
         collectionName,
-        collectionId
+        collectionId,
+        tempStorageId: tempSessionId
      }
 
      const validation = ImageGenerationSchema.safeParse(data);
@@ -108,10 +167,6 @@ export function ConfigurationPanel({
        // Await the generation action
        const result = await (onGenerate as any)(validation.data);
        
-       // Redirect if: 
-       // 1. We are creating a NEW collection (collectionId prop is missing)
-       // 2. The action was successful
-       // 3. We have a new collectionId to redirect to
        if (!collectionId && result?.success && result?.collectionId) {
           router.push(`/collections/${result.collectionId}`);
        }

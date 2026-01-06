@@ -35,6 +35,7 @@ export const ImageGenerationSchema = z.object({
   customPrompt: z.string().optional(),
   collectionName: z.string().min(1, "Bitte gib einen Namen für die Sammlung ein"),
   collectionId: z.string().optional(),
+  tempStorageId: z.string().optional(),
 });
 
 export const ApiKeySchema = z.object({
