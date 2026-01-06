@@ -29,7 +29,7 @@ export const ImageGenerationSchema = z.object({
   imageCount: z.array(z.number().min(1).max(40)).length(1),
   referenceImages: z.array(z.string()).max(3),
   background: z.enum(["white", "green", "custom"]),
-  customBgImage: z.string().nullable().optional(),
+  backgroundPrompt: z.string().optional(),
   aspectRatio: z.enum(ASPECT_RATIOS),
   shotType: z.enum(SHOT_TYPES),
   customPrompt: z.string().optional(),

@@ -121,7 +121,7 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
         
         let base64Data: string;
         try {
-            base64Data = await generateImage(genAI, finalPrompt, referenceImageParts);
+            base64Data = await generateImage(genAI, finalPrompt, referenceImageParts, validatedData.aspectRatio);
         } catch (error: any) {
              console.error(`   ❌ Generation failed for image ${i+1}:`, error);
              throw error; 

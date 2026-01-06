@@ -44,7 +44,7 @@ export function ConfigurationPanel({
     const [referenceImages, setReferenceImages] = React.useState<string[]>(initialValues?.referenceImages || [])
     const [referenceFiles, setReferenceFiles] = React.useState<File[]>([])
     const [background, setBackground] = React.useState<"white" | "green" | "custom">(initialValues?.background || "white")
-    const [customBgImage, setCustomBgImage] = React.useState<string | null>(initialValues?.customBgImage || null)
+    const [backgroundPrompt, setBackgroundPrompt] = React.useState(initialValues?.backgroundPrompt || "")
     
     // Updated aspect ratios including Auto
     const [aspectRatio, setAspectRatio] = React.useState<AspectRatioType>(initialValues?.aspectRatio as AspectRatioType || "Auto")
@@ -56,7 +56,6 @@ export function ConfigurationPanel({
     const [collectionName, setCollectionName] = React.useState(initialValues?.collectionName || "")
     
     const fileInputRef = React.useRef<HTMLInputElement>(null)
-    const customBgInputRef = React.useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -72,14 +71,7 @@ export function ConfigurationPanel({
     }
   }
 
-  const handleCustomBgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      const imageUrl = URL.createObjectURL(file)
-      setCustomBgImage(imageUrl)
-      setBackground("custom")
-    }
-  }
+
 
   const removeImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index))
@@ -147,7 +139,7 @@ export function ConfigurationPanel({
         imageCount,
         referenceImages: finalReferenceImages,
         background: background as any,
-        customBgImage,
+        backgroundPrompt: background === 'custom' ? backgroundPrompt : undefined,
         aspectRatio: aspectRatio as any,
         shotType: shotType as any,
         customPrompt,
@@ -255,43 +247,28 @@ export function ConfigurationPanel({
           >
              Greenscreen
           </Button>
-          <div className="w-full relative">
-             <Button 
-               variant={background === "custom" ? "default" : "outline"}
-               className={cn(
-                 "w-full justify-start hover:bg-muted/30",
-                 background === "custom" ? "bg-muted/40 text-white border-white" : "bg-muted/20 text-muted-foreground"
-               )}
-               onClick={() => customBgInputRef.current?.click()}
-             >
-                {customBgImage ? "Bild ändern" : "Eigene Szenerie"}
-             </Button>
-             <input 
-               type="file" 
-               ref={customBgInputRef} 
-               className="hidden" 
-               accept="image/*" 
-               onChange={handleCustomBgChange}
-             />
-          </div>
+          <Button 
+            variant={background === "custom" ? "default" : "outline"}
+            className={cn(
+                "w-full justify-start hover:bg-muted/30",
+                background === "custom" ? "bg-muted/40 text-white border-white" : "bg-muted/20 text-muted-foreground"
+            )}
+            onClick={() => setBackground("custom")}
+            >
+                Eigene Szenerie
+            </Button>
         </div>
         
-        {/* Custom Background Preview */}
-        {background === "custom" && customBgImage && (
-           <div className="relative h-32 w-full overflow-hidden rounded-lg border border-muted-foreground/20">
-              <img src={customBgImage} alt="Custom Background" className="h-full w-full object-cover" />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 h-6 w-6"
-                onClick={() => {
-                   setCustomBgImage(null)
-                   setBackground("white")
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-           </div>
+        {/* Custom Background Input */}
+        {background === "custom" && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <Input 
+                    placeholder="Beschreibe den Hintergrund (z.B. am Strand, im Büro, Cyberpunk Stadt)..." 
+                    className="bg-black/40 border-white/10 text-gray-200 placeholder:text-gray-500"
+                    value={backgroundPrompt}
+                    onChange={(e) => setBackgroundPrompt(e.target.value)}
+                />
+            </div>
         )}
       </div>
 

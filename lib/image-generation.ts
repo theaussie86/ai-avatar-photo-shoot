@@ -31,7 +31,7 @@ export async function refinePrompt(
     Aspect Ratio: ${config.aspectRatio}
     Shot Type: ${config.shotType}
     Pose: ${pose}
-    Background: ${config.background}
+    Background: ${config.background === 'custom' ? config.backgroundPrompt : config.background === 'green' ? 'solid green background (chroma key)' : 'solid white background'}
     Custom Instructions: ${config.customPrompt || "None"}
   `;
 
@@ -44,7 +44,8 @@ export async function refinePrompt(
   }
 
   // Fallback prompt
-  return `${config.shotType} photo, pose: ${pose}, ${config.background} background. ${config.customPrompt || ""}`;
+  const bgPrompt = config.background === 'custom' ? config.backgroundPrompt : config.background === 'green' ? 'solid green background (chroma key)' : 'solid white background';
+  return `${config.shotType} photo, pose: ${pose}, ${bgPrompt}. ${config.customPrompt || ""}`;
 }
 
 export async function processReferenceImages(urls: string[]): Promise<Part[]> {
@@ -89,6 +90,7 @@ export async function generateImage(
   genAI: GoogleGenerativeAI, 
   prompt: string, 
   referenceImages: Part[], 
+  aspectRatio: string = "1:1",
   modelName: string = "models/gemini-3-pro-image-preview"
 ): Promise<string> {
   const model = genAI.getGenerativeModel({ model: modelName });
@@ -102,6 +104,12 @@ export async function generateImage(
   try {
     result = await model.generateContent({
       contents: [{ role: 'user', parts: parts }],
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        imageConfig: {
+            aspectRatio: aspectRatio,
+        } as any, // Cast to any because the type definition might not be updated yet for this beta feature
+      } as any
     });
   } catch (genError: any) {
     console.error("Gemini generation failed.", genError);
