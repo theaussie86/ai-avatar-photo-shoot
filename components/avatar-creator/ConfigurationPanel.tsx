@@ -142,7 +142,7 @@ export function ConfigurationPanel({
         backgroundPrompt: background === 'custom' ? backgroundPrompt : undefined,
         aspectRatio: aspectRatio as any,
         shotType: shotType as any,
-        customPrompt,
+        customPrompt: showCustomPrompt ? customPrompt : undefined,
         collectionName,
         collectionId,
         tempStorageId: tempSessionId

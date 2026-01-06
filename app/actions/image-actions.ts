@@ -110,7 +110,10 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
         // 1. Select a unique pose
         const pose = selectPose(validatedData.shotType, i, shuffledPoses);
         
-        console.log(`Generating image ${i + 1}/${imagesToGenerate}... using pose: "${pose}"`);
+        const logMsg = validatedData.customPrompt 
+            ? `using Custom Prompt (overriding pose "${pose}")` 
+            : `using pose: "${pose}"`;
+        console.log(`Generating image ${i + 1}/${imagesToGenerate}... ${logMsg}`);
         
         // 2. Refine Prompt Individually
         const finalPrompt = await refinePrompt(genAI, validatedData, pose);

@@ -27,10 +27,12 @@ export async function refinePrompt(
     systemInstruction: IMAGE_GENERATION_SYSTEM_PROMPT,
   });
 
+  const effectivePose = config.customPrompt ? config.customPrompt : pose;
+
   const promptRequest = `Generate a photography prompt for:
     Aspect Ratio: ${config.aspectRatio}
     Shot Type: ${config.shotType}
-    Pose: ${pose}
+    Pose: ${effectivePose}
     Background: ${config.background === 'custom' ? config.backgroundPrompt : config.background === 'green' ? 'solid green background (chroma key)' : 'solid white background'}
     Custom Instructions: ${config.customPrompt || "None"}
   `;
@@ -45,7 +47,11 @@ export async function refinePrompt(
 
   // Fallback prompt
   const bgPrompt = config.background === 'custom' ? config.backgroundPrompt : config.background === 'green' ? 'solid green background (chroma key)' : 'solid white background';
-  return `${config.shotType} photo, pose: ${pose}, ${bgPrompt}. ${config.customPrompt || ""}`;
+  
+  if (config.customPrompt) {
+    return `${config.shotType} photo, ${config.customPrompt}, ${bgPrompt}.`;
+  }
+  return `${config.shotType} photo, pose: ${pose}, ${bgPrompt}.`;
 }
 
 export async function processReferenceImages(urls: string[]): Promise<Part[]> {
