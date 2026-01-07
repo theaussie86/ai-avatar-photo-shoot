@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, AspectRatioType, ShotType } from "@/lib/schemas"
+import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
 import { createClient } from "@/lib/supabase/client"
 
 interface ConfigurationPanelProps {
@@ -54,6 +54,7 @@ export function ConfigurationPanel({
     const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
     const [customPrompt, setCustomPrompt] = React.useState(initialValues?.customPrompt || "")
     const [collectionName, setCollectionName] = React.useState(initialValues?.collectionName || "")
+    const [model, setModel] = React.useState<GenerationModel>(initialValues?.model || "models/gemini-2.5-flash-image")
     
     const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -145,8 +146,10 @@ export function ConfigurationPanel({
         customPrompt: showCustomPrompt ? customPrompt : undefined,
         collectionName,
         collectionId,
-        tempStorageId: tempSessionId
+        tempStorageId: tempSessionId,
+        model
      }
+
 
      const validation = ImageGenerationSchema.safeParse(data);
      
@@ -318,6 +321,23 @@ export function ConfigurationPanel({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Model Selection */}
+      <div className="space-y-4">
+        <Label className="text-gray-200">KI Modell</Label>
+        <Select value={model} onValueChange={(val) => setModel(val as GenerationModel)}>
+          <SelectTrigger className="w-full text-gray-200 bg-black/40 border-white/10">
+            <SelectValue placeholder="Wähle Modell" />
+          </SelectTrigger>
+          <SelectContent>
+            {GENERATION_MODELS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m.split('/').pop()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
        {/* Quantity Slider */}

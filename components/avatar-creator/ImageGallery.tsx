@@ -178,6 +178,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                 key={img.id}
                 initialImage={img}
                 onClick={() => openGallery(idx)}
+                showRetry={true} // Always allow retry for failed/stuck images
               />
         ))}
       </div>

@@ -38,6 +38,11 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
       queryKey: ['collection-images', collection.id],
       queryFn: () => getCollectionImagesAction(collection.id),
       initialData: initialImages,
+      // Refetch every 3 seconds if any image in the list has a 'pending' status
+      refetchInterval: (query) => {
+          const hasPending = query.state.data?.some((img: any) => img.status === 'pending');
+          return hasPending ? 3000 : false;
+      }
   })
 
   // Image generation mutation

@@ -16,7 +16,12 @@ The **AI Avatar Photo Shoot App** is a premium web platform that allows users to
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **UI Components**: [Radix UI](https://www.radix-ui.com/) & [shadcn/ui](https://ui.shadcn.com/)
 - **Backend & Database**: [Supabase](https://supabase.com/) (Email Auth, PostgreSQL, Storage)
-- **AI Integration**: [Google Gemini API](https://ai.google.dev/) (Nano model)
+- **AI Integration**: [Google Gemini API](https://ai.google.dev/) (Flash 2.5 & Pro 3 Image models)
+
+## 🤖 Supported Models
+Users can choose between the following models for image generation:
+- **gemini-2.5-flash-image** (Default): Fast and efficient.
+- **gemini-3-pro-image-preview**: High fidelity, premium quality.
 
 ## 🚀 Getting Started
 

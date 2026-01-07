@@ -97,7 +97,7 @@ export async function generateImage(
   prompt: string, 
   referenceImages: Part[], 
   aspectRatio: string = "1:1",
-  modelName: string = "models/gemini-3-pro-image-preview"
+  modelName: string = "models/gemini-2.5-flash-image"
 ): Promise<string> {
   const model = genAI.getGenerativeModel({ model: modelName });
   const parts: Part[] = [{ text: prompt }];

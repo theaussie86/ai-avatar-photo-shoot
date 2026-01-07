@@ -94,6 +94,8 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
 
         // Invalidate self to start polling
         queryClient.invalidateQueries({ queryKey: ['image', image.id] })
+        queryClient.removeQueries({ queryKey: ['image', image.id] }) // Force hard reset
+        
         // Also invalidate list to show pending state if needed
         queryClient.invalidateQueries({ queryKey: ['collection-images', image.collection_id] })
     },

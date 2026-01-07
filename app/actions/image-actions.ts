@@ -23,6 +23,7 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
   if (!user) {
       redirect("/login");
@@ -153,7 +154,11 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
         // 4. Trigger Async Generation Task (Fire & Forget)
         // We do NOT await this. It runs in the background.
         console.log(`[Action] Triggering Async Task for Image ${imageRecord.id}`);
-        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData).catch(err => {
+        // Pass session tokens if available
+        const accessToken = session?.access_token;
+        const refreshToken = session?.refresh_token;
+
+        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData, accessToken, refreshToken).catch(err => {
             console.error(`Unhandled error in background task for ${imageRecord.id}:`, err);
         });
         
@@ -180,24 +185,55 @@ async function generateImageTask(
     imageId: string, 
     apiKey: string, 
     prompt: string, 
-    config: ImageGenerationConfig
+    config: ImageGenerationConfig,
+    accessToken?: string,
+    refreshToken?: string
 ) {
     console.log(`[Task ${imageId}] Starting generation...`);
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    // User requested to use Anon Key. Note: This assumes RLS allows anon updates or policies are open.
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
     if (!supabaseUrl) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
     if (!supabaseKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
     
     // Create Client for background operations
+    // We use the ANON key but set the session to impersonate the user
+    // Note: We use createSupabaseAdmin just for the import, but we really just need a standard client
+    // For clarity/correctness, we're using the JS client directly.
     const supabase = createSupabaseAdmin(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false }
+        auth: { 
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
     });
+
+    if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+        });
+        if (sessionError) {
+             console.error(`[Task ${imageId}] Session Error:`, sessionError);
+        } else {
+             const { data: { user } } = await supabase.auth.getUser();
+             console.log(`[Task ${imageId}] Authenticated as user: ${user?.id}`);
+        }
+    } else {
+        console.warn(`[Task ${imageId}] No session tokens provided. Uploads might fail RLS.`);
+    }
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const referenceImageUrls = config.referenceImages || [];
+
+        // Verify DB Access immediately
+        const { data: checkImg, error: checkError } = await supabase.from('images').select('id, user_id').eq('id', imageId).single();
+        if (checkError) {
+             console.error(`[Task ${imageId}] Initial DB Check Failed:`, checkError);
+        } else {
+             console.log(`[Task ${imageId}] Initial DB Check OK. User/Owner match: ${checkImg.user_id}`);
+        }
 
         // 1. Prepare Reference Images
         const parts: any[] = [{ text: prompt }];
@@ -230,24 +266,33 @@ async function generateImageTask(
 
         // 2. Generate
         console.log(`[Task ${imageId}] Calling Gemini...`);
-        const proModel = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash-exp" }); 
+        const modelName = config.model || "models/gemini-2.5-flash-image";
+        console.log(`[Task ${imageId}] Calling Gemini Model: ${modelName}`);
         
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" }); 
+        const model = genAI.getGenerativeModel({ model: modelName }); 
         
+        let generationConfig: any = {
+             responseModalities: ["IMAGE"],
+             imageConfig: {}
+        };
+
+        if (config.aspectRatio && config.aspectRatio !== 'Auto') {
+             generationConfig.imageConfig.aspectRatio = config.aspectRatio;
+        }
+
+        console.log(`[Task ${imageId}] Generation Config:`, JSON.stringify(generationConfig, null, 2));
+
         const result = await model.generateContent({
              contents: [{ role: 'user', parts: parts }],
-             generationConfig: {
-                 responseModalities: ["IMAGE"],
-                 imageConfig: {
-                    aspectRatio: config.aspectRatio
-                 }
-             } as any
+             generationConfig: generationConfig
         });
 
         const candidate = result.response.candidates?.[0];
         const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData);
 
         if (!imagePart || !imagePart.inlineData) {
+             console.error(`[Task ${imageId}] No image. FinishReason: ${candidate?.finishReason}`);
+             console.error(`[Task ${imageId}] Safety Ratings:`, candidate?.safetyRatings);
              throw new Error("No image generated. FinishReason: " + candidate?.finishReason);
         }
 
@@ -273,12 +318,19 @@ async function generateImageTask(
             .getPublicUrl(storagePath);
 
         // 4. Update DB
-        console.log(`[Task ${imageId}] Done! Updating DB.`);
-        await supabase.from('images').update({
+        console.log(`[Task ${imageId}] Done! Updating DB...`);
+        const { error: updateError } = await supabase.from('images').update({
             status: 'completed',
             url: publicUrl,
             storage_path: storagePath
         }).eq('id', imageId);
+
+        if (updateError) {
+             console.error(`[Task ${imageId}] DB Update FAILED:`, updateError);
+             throw new Error("DB Update failed: " + updateError.message);
+        } else {
+             console.log(`[Task ${imageId}] DB Update Success.`);
+        }
 
     } catch (err: any) {
         console.error(`[Task ${imageId}] FAILED:`, err);
@@ -459,7 +511,10 @@ export async function retriggerImageAction(imageId: string) {
     }
     
     console.log(`[Retrigger] Restarting task for ${imageId}`);
-    generateImageTask(imageId, apiKey, meta.prompt, meta.config).catch(console.error);
+    // Retriggering might fail RLS if we don't pass session, but retriggerImageAction (Server Action) 
+    // has access to cookies, but we need to extract tokens.
+    const { data: { session } } = await supabase.auth.getSession();
+    generateImageTask(imageId, apiKey, meta.prompt, meta.config, session?.access_token, session?.refresh_token).catch(console.error);
 
     return { success: true };
 }
