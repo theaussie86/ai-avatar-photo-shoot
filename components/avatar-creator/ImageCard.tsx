@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Download, Trash2, RefreshCw, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { getImageAction, deleteImageAction, retriggerImageAction } from "@/app/actions/image-actions"
 import { useDownloadImage } from "@/hooks/use-download-image"
 import {
@@ -28,43 +28,11 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
   const queryClient = useQueryClient()
   const downloadMutation = useDownloadImage()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
-  const [isTimedOut, setIsTimedOut] = React.useState(false) // Local timeout state
-  const pollingAttempts = React.useRef(0)
-
-  // Poll for image status if it's pending
-  const { data: image } = useQuery({
-    queryKey: ['image', initialImage.id],
-    queryFn: () => getImageAction(initialImage.id),
-    initialData: initialImage,
-    staleTime: Infinity, // Trust initialData, don't refetch on mount
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      if (status !== 'pending') return false
-
-      if (pollingAttempts.current >= 5) {
-         setIsTimedOut(true)
-         return false
-      }
-      
-      pollingAttempts.current++
-      // Poll if pending. Add slight jitter to prevent thundering herd if multiple images pending
-      return 2000 + Math.random() * 500
-    },
-    // If the image updates from pending to completed, invalidate the list to update carousel/parent
-    // We can use the meta.persist option or useEffect. 
-    // Using simple side effect in component specific to status change is easier.
-  })
-
-  // Effect to invalidate parent list when image completes
-  React.useEffect(() => {
-    if (image.status === 'completed' && initialImage.status === 'pending') {
-         // Invalidate collection list so the parent (and carousel) gets the updated URL/status
-         queryClient.invalidateQueries({ queryKey: ['collection-images', image.collection_id] })
-    }
-  }, [image.status, initialImage.status, image.collection_id, queryClient])
+  const image = initialImage
+  
+  // Removed local polling state & useQuery
+  // The parent component (CollectionDetailClient) is responsible for polling the list
+  // which updates the 'initialImage' prop passed here.
 
   // Delete Mutation
   const deleteMutation = useMutation({
@@ -88,15 +56,7 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
         return await retriggerImageAction(image.id)
     },
     onSuccess: () => {
-        // Reset polling state
-        pollingAttempts.current = 0
-        setIsTimedOut(false)
-
-        // Invalidate self to start polling
-        queryClient.invalidateQueries({ queryKey: ['image', image.id] })
-        queryClient.removeQueries({ queryKey: ['image', image.id] }) // Force hard reset
-        
-        // Also invalidate list to show pending state if needed
+        // Invalidate list to show pending state
         queryClient.invalidateQueries({ queryKey: ['collection-images', image.collection_id] })
     },
     onError: (error) => {
@@ -123,21 +83,19 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
   return (
     <>
       <div 
-        className={`group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-muted/10 ${image.status === 'pending' ? 'cursor-wait' : 'cursor-zoom-in'}`}
-        onClick={onClick}
+        className={`group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-muted/10 ${image.status === 'pending' ? 'cursor-wait' : image.status === 'failed' ? 'cursor-default' : 'cursor-zoom-in'}`}
+        onClick={image.status === 'completed' ? onClick : undefined}
       >
-        {image.status === 'pending' ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900/50 p-4 text-center">
-                {showRetry || isTimedOut || image.status === 'failed' ? ( 
-                     // Show retry if global showRetry is on, OR local timeout, OR status failed
-                     <div className="flex flex-col items-center gap-2">
-                        <span className="text-xs text-red-400 font-medium">
-                            {image.status === 'failed' ? 'Fehlgeschlagen' : 'Zeitüberschreitung'}
-                        </span>
+        {image.status === 'pending' || image.status === 'failed' ? (
+            <div className={`flex h-full w-full flex-col items-center justify-center p-4 text-center ${image.status === 'failed' ? 'bg-red-900/20' : 'bg-gray-900/50'}`}>
+                {image.status === 'failed' ? ( 
+                     // FAILED STATE: Show error message and Retry button
+                     <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-300">
+                        <span className="text-xs text-red-400 font-medium">Generation fehlgeschlagen</span>
                         <Button 
                             size="sm" 
                             variant="outline"
-                            className="bg-white/5 border-white/20 hover:bg-white/20 text-xs h-8"
+                            className="bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs h-8"
                             onClick={handleRetrigger}
                             disabled={retriggerMutation.isPending}
                         >
@@ -146,10 +104,11 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
                         </Button>
                     </div>
                 ) : (
-                    <>
-                        <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-2" />
-                        <span className="text-xs text-gray-400 animate-pulse">Wird generiert...</span>
-                    </>
+                    // PENDING STATE: Show Spinner
+                    <div className="flex flex-col items-center gap-2 animate-pulse">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                        <span className="text-xs text-gray-400 font-medium">Wird generiert...</span>
+                    </div>
                 )}
             </div>
         ) : (

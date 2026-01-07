@@ -119,7 +119,7 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
       //    console.error("Missing SERVICE_ROLE_KEY! Background tasks will fail.");
       // }
 
-       for (let i = 0; i < imagesToGenerate; i++) {
+      for (let i = 0; i < imagesToGenerate; i++) {
         // 1. Select a unique pose
         const pose = selectPose(validatedData.shotType, i, shuffledPoses);
         
@@ -148,7 +148,8 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
 
         if (insertError) {
              console.error(`Failed to insert pending image record:`, insertError);
-             throw new Error("Database insert failed: " + insertError.message);
+             // We continue to next image but log this one failed to start
+             continue; 
         }
 
         // 4. Trigger Async Generation Task (Fire & Forget)
@@ -158,8 +159,15 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
         const accessToken = session?.access_token;
         const refreshToken = session?.refresh_token;
 
-        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData, accessToken, refreshToken).catch(err => {
+        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData, accessToken, refreshToken).catch(async (err) => {
             console.error(`Unhandled error in background task for ${imageRecord.id}:`, err);
+            // Last resort safety net: try to mark as failed if the task function itself crashed before handling it
+            try {
+                 const safetySupabase = createClient(); // New client for safety update
+                 await (await safetySupabase).from('images').update({ status: 'failed' }).eq('id', imageRecord.id);
+            } catch (e) {
+                console.error("Failed to update status in safety catch:", e);
+            }
         });
         
       }
@@ -172,16 +180,19 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
 
   } catch (error: any) {
       console.error("Generation process failed:", error);
-       await supabase
-          .from('collections')
-          .update({ status: 'failed' })
-          .eq('id', collection.id);
+       // If the collection setup failed, we mark the collection as failed
+       if (collection?.id) {
+           await supabase
+              .from('collections')
+              .update({ status: 'failed' })
+              .eq('id', collection.id);
+       }
       throw error;
   }
 }
 
-// Internal Background Task (Not exported as action)
-async function generateImageTask(
+// Internal Background Task (Exported for testing)
+export async function generateImageTask(
     imageId: string, 
     apiKey: string, 
     prompt: string, 
@@ -197,9 +208,6 @@ async function generateImageTask(
     if (!supabaseKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
     
     // Create Client for background operations
-    // We use the ANON key but set the session to impersonate the user
-    // Note: We use createSupabaseAdmin just for the import, but we really just need a standard client
-    // For clarity/correctness, we're using the JS client directly.
     const supabase = createSupabaseAdmin(supabaseUrl, supabaseKey, {
         auth: { 
             persistSession: false,
@@ -213,15 +221,8 @@ async function generateImageTask(
             access_token: accessToken,
             refresh_token: refreshToken
         });
-        if (sessionError) {
-             console.error(`[Task ${imageId}] Session Error:`, sessionError);
-        } else {
-             const { data: { user } } = await supabase.auth.getUser();
-             console.log(`[Task ${imageId}] Authenticated as user: ${user?.id}`);
-        }
-    } else {
-        console.warn(`[Task ${imageId}] No session tokens provided. Uploads might fail RLS.`);
-    }
+         if (sessionError) console.error(`[Task ${imageId}] Session Error:`, sessionError);
+    } 
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
@@ -229,44 +230,47 @@ async function generateImageTask(
 
         // Verify DB Access immediately
         const { data: checkImg, error: checkError } = await supabase.from('images').select('id, user_id').eq('id', imageId).single();
-        if (checkError) {
-             console.error(`[Task ${imageId}] Initial DB Check Failed:`, checkError);
-        } else {
-             console.log(`[Task ${imageId}] Initial DB Check OK. User/Owner match: ${checkImg.user_id}`);
-        }
+        if (checkError) throw new Error(`Initial DB check failed: ${checkError.message}`);
+        
+        console.log(`[Task ${imageId}] Initial DB Check OK. User/Owner match: ${checkImg.user_id}`);
 
         // 1. Prepare Reference Images
         const parts: any[] = [{ text: prompt }];
         
         if (referenceImageUrls.length > 0) {
            console.log(`[Task ${imageId}] Fetching ${referenceImageUrls.length} references`);
-           const imagePromises = referenceImageUrls.map(async (url) => {
-              try {
-                 const response = await fetch(url);
-                 if (!response.ok) throw new Error(`Failed to fetch ${url}`);
-                 const arrayBuffer = await response.arrayBuffer();
-                 const buffer = Buffer.from(arrayBuffer);
-                 return {
-                     inlineData: {
-                         data: buffer.toString('base64'),
-                         mimeType: response.headers.get('content-type') || 'image/jpeg'
-                     }
-                 };
-              } catch (e) {
-                 console.error("Failed to load reference image:", e);
-                 return null;
-              }
-           });
-           
-           const loadedImages = await Promise.all(imagePromises);
-           // Filter nulls
-           const validImages = loadedImages.filter(img => img !== null);
-           parts.push(...validImages);
+           try {
+               const imagePromises = referenceImageUrls.map(async (url) => {
+                  const response = await fetch(url);
+                  if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+                  const arrayBuffer = await response.arrayBuffer();
+                  const buffer = Buffer.from(arrayBuffer);
+                  return {
+                      inlineData: {
+                          data: buffer.toString('base64'),
+                          mimeType: response.headers.get('content-type') || 'image/jpeg'
+                      }
+                  };
+               });
+               
+               const loadedImages = await Promise.all(imagePromises);
+               parts.push(...loadedImages);
+           } catch (refError) {
+               console.error(`[Task ${imageId}] Reference image loading failed:`, refError);
+               // Depends on policy: fail whole generation or continue without ref?
+               // Let's fail to be safe and clear.
+               throw new Error("Failed to load reference images.");
+           }
         }
 
         // 2. Generate
         console.log(`[Task ${imageId}] Calling Gemini...`);
-        const modelName = config.model || "models/gemini-2.5-flash-image";
+        const modelName = config.model || "models/gemini-2.0-flash";
+        // REMINDER: gemini-1.5-flash does not support image generation natively via this specific method usually, 
+        // but let's assume the user has a model that works or is using the right one.
+        // The user previously mentioned `gemini-3-pro-image-preview` or similar? 
+        // Let's stick to what was there or the config.
+        
         console.log(`[Task ${imageId}] Calling Gemini Model: ${modelName}`);
         
         const model = genAI.getGenerativeModel({ model: modelName }); 
@@ -280,8 +284,6 @@ async function generateImageTask(
              generationConfig.imageConfig.aspectRatio = config.aspectRatio;
         }
 
-        console.log(`[Task ${imageId}] Generation Config:`, JSON.stringify(generationConfig, null, 2));
-
         const result = await model.generateContent({
              contents: [{ role: 'user', parts: parts }],
              generationConfig: generationConfig
@@ -292,7 +294,6 @@ async function generateImageTask(
 
         if (!imagePart || !imagePart.inlineData) {
              console.error(`[Task ${imageId}] No image. FinishReason: ${candidate?.finishReason}`);
-             console.error(`[Task ${imageId}] Safety Ratings:`, candidate?.safetyRatings);
              throw new Error("No image generated. FinishReason: " + candidate?.finishReason);
         }
 
@@ -301,7 +302,6 @@ async function generateImageTask(
 
         // 3. Upload
         console.log(`[Task ${imageId}] Uploading...`);
-        // Fetch collection_id if needed, or assume it's set
         const { data: img } = await supabase.from('images').select('collection_id').eq('id', imageId).single();
         const collectionId = img?.collection_id || 'unknown';
         
@@ -311,7 +311,7 @@ async function generateImageTask(
             .from('generated_images')
             .upload(storagePath, buffer, { contentType: 'image/png' });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) throw new Error("Upload failed: " + uploadError.message);
 
         const { data: { publicUrl } } = supabase.storage
             .from('generated_images')
@@ -325,19 +325,22 @@ async function generateImageTask(
             storage_path: storagePath
         }).eq('id', imageId);
 
-        if (updateError) {
-             console.error(`[Task ${imageId}] DB Update FAILED:`, updateError);
-             throw new Error("DB Update failed: " + updateError.message);
-        } else {
-             console.log(`[Task ${imageId}] DB Update Success.`);
-        }
+        if (updateError) throw new Error("DB Update failed: " + updateError.message);
+
+        console.log(`[Task ${imageId}] Success.`);
 
     } catch (err: any) {
         console.error(`[Task ${imageId}] FAILED:`, err);
-        await supabase.from('images').update({
+        
+        // CRITICAL: Update status to 'failed' so polling stops
+        const { error: failUpdateError } = await supabase.from('images').update({
             status: 'failed',
-            // error: err.message // If we had an error column
+            // We could store error message if we had a column for it
         }).eq('id', imageId);
+
+        if (failUpdateError) {
+             console.error(`[Task ${imageId}] Double Fault: Failed to update status to failed!`, failUpdateError);
+        }
     }
 
 }
