@@ -27,6 +27,7 @@ The **AI Avatar Photo Shoot App** is a web-based platform that allows users to c
 ### 3.3 AI Model & Generation
 *   **Provider**: Google Gemini API (utilizing the "Nano Banana" model capability).
 *   **Mechanism**: Server Actions interact with the Gemini API using the user's stored key.
+*   **SDK Requirement**: MUST use the new Google GenAI SDK (`@google/genai`) for all interactions. Reference the codegen_instructions.md for more details. https://raw.githubusercontent.com/googleapis/js-genai/refs/heads/main/codegen_instructions.md
 *   **Customization**: Users can select "styles" (e.g., Corporate, Cyberpunk, Oil Painting) which map to specific system prompts.
 
 ### 3.4 Image Gallery

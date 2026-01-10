@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, Part } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { ImageGenerationConfig, ImageGenerationSchema } from "@/lib/schemas";
 import { IMAGE_GENERATION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { POSES } from "@/lib/poses";
@@ -17,16 +17,14 @@ export function selectPose(shotType: string, index: number, availablePoses: stri
   return availablePoses[index % availablePoses.length];
 }
 
+// Helper to extract visual tokens/description from the first reference image
+// DEPRECATED/REMOVED per user request
+
 export async function refinePrompt(
-  genAI: GoogleGenerativeAI,
+  client: GoogleGenAI,
   config: ImageGenerationConfig,
   pose: string
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({
-    model: "models/gemini-2.0-flash",
-    systemInstruction: IMAGE_GENERATION_SYSTEM_PROMPT,
-  });
-
   const effectivePose = config.customPrompt ? config.customPrompt : pose;
 
   const promptRequest = `Generate a photography prompt for:
@@ -38,8 +36,16 @@ export async function refinePrompt(
   `;
 
   try {
-    const result = await model.generateContent(promptRequest);
-    const text = result.response.text();
+    const result: any = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      config: {
+        systemInstruction: IMAGE_GENERATION_SYSTEM_PROMPT,
+      },
+      contents: [{ role: 'user', parts: [{ text: promptRequest }] }],
+    });
+    
+    const candidate = result.candidates?.[0] || result.response?.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
     if (text) return text;
   } catch (error) {
     console.error("Prompt refinement failed, using fallback:", error);
@@ -54,68 +60,47 @@ export async function refinePrompt(
   return `${config.shotType} photo, pose: ${pose}, ${bgPrompt}.`;
 }
 
-export async function processReferenceImages(urls: string[]): Promise<Part[]> {
-  if (!urls || urls.length === 0) return [];
+// NOTE: processReferenceImages for inline data is DEPRECATED in favor of Files API in the action.
+// We keep a minimal version or remove it if unused. It was used to fetch and convert to base64.
+// For Files API, we need to fetch and save to disk, which is better done in the server action context.
+// So we can remove processReferenceImages or leave it as is but unused.
+// I will check if it's used elsewhere. It's imported in image-actions.ts, so I should probably leave it or remove it if I update image-actions.ts to not use it.
+// I will remove it to avoid confusion, as the new flow is Files API.
 
-  const parts: Part[] = [];
-  const imagePromises = urls.map(async (url) => {
-    try {
-      // Handle potential relative URLs or missing protocol
-      const fetchUrl = url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${url}`;
-
-      const response = await fetch(fetchUrl);
-      if (!response.ok) throw new Error(`Failed to fetch ${url}`);
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString('base64');
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
-
-      return {
-        inlineData: {
-          data: base64,
-          mimeType: contentType
-        }
-      } as Part;
-    } catch (e) {
-      console.error("Failed to load reference image:", e);
-      return null;
-    }
-  });
-
-  const loadedImages = await Promise.all(imagePromises);
-  const validImages = loadedImages.filter((img): img is Part => img !== null);
-  
-  if (validImages.length > 0) {
-    parts.push(...validImages);
-  }
-
-  return parts;
-}
-
+/**
+ * Generates an image using the provided client and inputs.
+ * @param client The initialized Google GenAI Client
+ * @param prompt The prompt to generate
+ * @param referenceImageParts Array of parts (can be fileData parts now)
+ * @param aspectRatio Aspect ratio string
+ * @param modelName Model name to use
+ */
 export async function generateImage(
-  genAI: GoogleGenerativeAI, 
+  client: GoogleGenAI, 
   prompt: string, 
-  referenceImages: Part[], 
+  referenceImageParts: any[], 
   aspectRatio: string = "1:1",
-  modelName: string = "models/gemini-2.5-flash-image"
+  modelName: string = "gemini-2.0-flash" 
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: modelName });
-  const parts: Part[] = [{ text: prompt }];
+  // Construct contents
+  const parts: any[] = [{ text: prompt }];
 
-  if (referenceImages && referenceImages.length > 0) {
-    parts.push(...referenceImages);
+  if (referenceImageParts && referenceImageParts.length > 0) {
+    parts.push(...referenceImageParts);
   }
   
-  let result;
+  let result: any;
   try {
-    result = await model.generateContent({
+    result = await client.models.generateContent({
+      model: modelName,
       contents: [{ role: 'user', parts: parts }],
-      generationConfig: {
+      config: {
         responseModalities: ["IMAGE"],
+        // @ts-ignore - SDK might not have perfect update for imageConfig yet
         imageConfig: {
             aspectRatio: aspectRatio,
-        } as any, // Cast to any because the type definition might not be updated yet for this beta feature
-      } as any
+        }
+      }
     });
   } catch (genError: any) {
     console.error("Gemini generation failed.", genError);
@@ -125,16 +110,14 @@ export async function generateImage(
     throw genError;
   }
 
-  const response = result.response;
-  if (!response.candidates || response.candidates.length === 0) {
+  const candidate = result.candidates?.[0] || result.response?.candidates?.[0]; // Support direct or wrapped
+  if (!candidate) {
       throw new Error("No candidates returned from Gemini");
   }
-
-  const candidate = response.candidates[0];
-  const imagePart = candidate.content.parts.find((p: any) => p.inlineData);
+  const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData);
 
   if (!imagePart || !imagePart.inlineData) {
-       const textPart = candidate.content.parts.find((p: any) => p.text);
+       const textPart = candidate?.content?.parts?.find((p: any) => p.text);
        if (textPart) {
            throw new Error("Model returned text instead of image: " + textPart.text);
        }

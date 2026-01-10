@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils"
 import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
 import { createClient } from "@/lib/supabase/client"
+import { uploadReferenceImage } from "@/app/actions/image-actions"
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -54,7 +55,7 @@ export function ConfigurationPanel({
     const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
     const [customPrompt, setCustomPrompt] = React.useState(initialValues?.customPrompt || "")
     const [collectionName, setCollectionName] = React.useState(initialValues?.collectionName || "")
-    const [model, setModel] = React.useState<GenerationModel>(initialValues?.model || "models/gemini-2.5-flash-image")
+    const [model, setModel] = React.useState<GenerationModel>(initialValues?.model || "gemini-2.5-flash-image")
     
     const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -92,49 +93,39 @@ export function ConfigurationPanel({
          return;
      }
 
-     const uploadedImageUrls: string[] = [];
-
-     // Generate a unique session ID for this batch of uploads to allow easy cleanup
-     // Note: crypto.randomUUID() is available in secure contexts (https) and localhost
-     const tempSessionId = crypto.randomUUID();
+     const uploadedImageUris: string[] = [];
 
      // If we have files to upload
      if (referenceFiles.length > 0) {
          try {
+             // We upload sequentially or parallel. Parallel is likely fine.
              const uploadPromises = referenceFiles.map(async (file) => {
-                 const fileExt = file.name.split('.').pop();
-                 // Group by session ID: generated_images/{userId}/temp_references/{sessionId}/{randomName}
-                 // We put it under the user's folder so standard RLS policies (user can write to own folder) work.
-                 const fileName = `${user.id}/temp_references/${tempSessionId}/${crypto.randomUUID()}.${fileExt}`;
+                 const formData = new FormData();
+                 formData.append("file", file);
                  
-                 const { error: uploadError } = await supabase.storage
-                    .from('generated_images')
-                    .upload(fileName, file);
-
-                 if (uploadError) throw uploadError;
-
-                 const { data: { publicUrl } } = supabase.storage
-                    .from('generated_images')
-                    .getPublicUrl(fileName);
-                 
-                 return publicUrl;
+                 // Server Action call
+                 const result = await uploadReferenceImage(formData);
+                 return result.uri;
              });
 
-             const urls = await Promise.all(uploadPromises);
-             uploadedImageUrls.push(...urls);
+             const uris = await Promise.all(uploadPromises);
+             uploadedImageUris.push(...uris);
 
          } catch (error) {
              console.error("Upload failed", error);
-             alert("Fehler beim Hochladen der Referenzbilder.");
+             alert("Fehler beim Hochladen der Referenzbilder zu Gemini.");
              return;
          }
      }
     
-     // Combine uploaded URLs with any pre-existing remote URLs (filtering out local blobs)
-     const finalReferenceImages = [
-         ...referenceImages.filter(url => !url.startsWith('blob:')), 
-         ...uploadedImageUrls
-     ];
+     // Combine uploaded URIs with any pre-existing remote URLs (though we mostly expect new uploads)
+     // If there were existing URLs (non-blob), they might currently be Supabase URLs.
+     // Since the user wants to move away from Supabase reference storage, we should ideally not mix them 
+     // unless we support legacy URLs. 
+     // But given the user says "I don't need reference images anymore", we assume new flow.
+     // We only include the NEWLY uploaded Gemini URIs for the generation.
+     // Existing 'blob:' URLs in referenceImages generated for preview are ignored.
+     const finalReferenceImages = uploadedImageUris;
 
      const data: ImageGenerationConfig = {
         imageCount,
@@ -146,7 +137,7 @@ export function ConfigurationPanel({
         customPrompt: showCustomPrompt ? customPrompt : undefined,
         collectionName,
         collectionId,
-        tempStorageId: tempSessionId,
+
         model
      }
 

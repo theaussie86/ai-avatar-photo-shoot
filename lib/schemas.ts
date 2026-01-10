@@ -26,8 +26,8 @@ export const SHOT_TYPES = [
 export type ShotType = typeof SHOT_TYPES[number];
 
 export const GENERATION_MODELS = [
-  "models/gemini-2.5-flash-image",
-  "models/gemini-3-pro-image-preview",
+  "gemini-2.5-flash-image",
+  "gemini-3-pro-image-preview",
 ] as const;
 
 export type GenerationModel = typeof GENERATION_MODELS[number];
@@ -43,7 +43,7 @@ export const ImageGenerationSchema = z.object({
   collectionName: z.string().min(1, "Bitte gib einen Namen für die Sammlung ein"),
   collectionId: z.string().optional(),
   tempStorageId: z.string().optional(),
-  model: z.enum(GENERATION_MODELS).optional().default("models/gemini-2.5-flash-image"),
+  model: z.enum(GENERATION_MODELS).optional().default("gemini-2.5-flash-image"),
 });
 
 export const ApiKeySchema = z.object({

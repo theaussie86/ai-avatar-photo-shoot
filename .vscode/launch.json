@@ -12,6 +12,15 @@
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:3000"
+    },
+    {
+      "name": "Scripts: Debug Gemini",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "${file}"],
+      "envFile": "${workspaceFolder}/.env.local",
+      "skipFiles": ["<node_internals>/**"]
     }
   ]
 }

@@ -92,16 +92,27 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
                      // FAILED STATE: Show error message and Retry button
                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-300">
                         <span className="text-xs text-red-400 font-medium">Generation fehlgeschlagen</span>
-                        <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs h-8"
-                            onClick={handleRetrigger}
-                            disabled={retriggerMutation.isPending}
-                        >
-                            <RefreshCw className={`w-3 h-3 mr-1.5 ${retriggerMutation.isPending ? 'animate-spin' : ''}`} />
-                            Erneut versuchen
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs h-8"
+                                onClick={handleRetrigger}
+                                disabled={retriggerMutation.isPending}
+                            >
+                                <RefreshCw className={`w-3 h-3 mr-1.5 ${retriggerMutation.isPending ? 'animate-spin' : ''}`} />
+                                Retry
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 w-8 p-0"
+                                onClick={handleDelete}
+                                disabled={deleteMutation.isPending}
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     // PENDING STATE: Show Spinner
