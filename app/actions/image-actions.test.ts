@@ -64,7 +64,7 @@ describe('Image Actions', () => {
      },
      files: {
          upload: vi.fn(),
-         delete: vi.fn(),
+         delete: vi.fn().mockResolvedValue({}),
          get: vi.fn()
      }
   };
@@ -108,13 +108,15 @@ describe('Image Actions', () => {
         const chain = {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }), // Default fail
             insert: vi.fn().mockReturnThis(),
             update: vi.fn().mockReturnThis(),
             delete: vi.fn().mockReturnThis(),
             upsert: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(), 
-        };
+        } as any;
 
         if (table === 'profiles') {
              chain.single.mockResolvedValue({ data: { gemini_api_key: 'test-api-key' }, error: null });
@@ -199,6 +201,7 @@ describe('Image Actions', () => {
                        return {
                            select: vi.fn().mockReturnThis(),
                            eq: vi.fn().mockReturnThis(),
+                           in: vi.fn().mockReturnThis(),
                            single: vi.fn().mockResolvedValue({ data: { id: imageId, collection_id: 'col-1' }, error: null }),
                            update: vi.fn().mockReturnThis()
                        } as any;
@@ -235,6 +238,7 @@ describe('Image Actions', () => {
                        return {
                            select: vi.fn().mockReturnThis(),
                            eq: vi.fn().mockReturnThis(),
+                           in: vi.fn().mockReturnThis(),
                            single: vi.fn().mockResolvedValue({ data: { id: imageId, collection_id: 'col-1' }, error: null }),
                            update: vi.fn().mockReturnThis()
                        } as any;
@@ -252,7 +256,19 @@ describe('Image Actions', () => {
            expect(mockGenAIClient.files.upload).not.toHaveBeenCalled(); 
            expect(mockGenAIClient.models.generateContent).toHaveBeenCalled();
            
-           // It attempts to delete them at the end
+           // It attempts to delete them at the end (mockGenAIClient.files.delete)
+           // NOT CALLED because in the test mockTaskSupabase returns NO list of other images,
+           // but wait, mockTaskSupabase.from('images').select('metadata').in('status', ['pending', 'failed'])
+           // returns undefined or whatever. 
+           // In my code: const { data: activeImages, error: fetchError } = await supabase.from('images').select('metadata').in('status', ['pending', 'failed']);
+           // In current mockTaskSupabase setup, .in() returns 'this' but doesn't have a resolved value.
+           
+           // Let's refine the mock to return data
+           const chain = mockTaskSupabase.from('images');
+           chain.in.mockResolvedValue({ data: [], error: null }); // No other images need it
+           mockGenAIClient.files.delete.mockResolvedValue({}); // Promise for .catch()
+           
+           await generateImageTask(imageId, 'api-key', 'prompt', configWithRef as any);
            expect(mockGenAIClient.files.delete).toHaveBeenCalledWith({ name: 'files/12345' });
        });
   });
@@ -264,21 +280,18 @@ describe('Image Actions', () => {
           // Mock ownership check
           const mockCollection = { id: collectionId };
           mockSupabase.from.mockImplementation((table) => {
-              if (table === 'collections') {
-                  return {
-                      select: vi.fn().mockReturnThis(),
-                      eq: vi.fn().mockReturnThis(),
-                      single: vi.fn().mockResolvedValue({ data: mockCollection }),
-                      delete: vi.fn().mockReturnThis(),
-                  } as any;
-              }
+              const chain = {
+                select: vi.fn().mockReturnThis(),
+                eq: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ data: mockCollection }),
+                delete: vi.fn().mockReturnThis(),
+              } as any;
+
               if (table === 'images') {
-                  return {
-                      delete: vi.fn().mockReturnThis(),
-                      eq: vi.fn().mockReturnThis()
-                  } as any;
+                  chain.delete = vi.fn().mockReturnThis();
+                  chain.eq = vi.fn().mockReturnThis();
               }
-              return {} as any;
+              return chain;
           });
 
           // Mock listing files
@@ -301,21 +314,25 @@ describe('Image Actions', () => {
           const storagePath = 'col/img.png';
 
           mockSupabase.from.mockImplementation((table) => {
-              if (table === 'images') {
-                  return {
-                      select: vi.fn().mockReturnThis(),
-                      eq: vi.fn().mockReturnThis(),
-                      single: vi.fn().mockResolvedValue({ 
-                          data: { 
-                              id: imageId, 
-                              user_id: mockUser.id,
-                              metadata: {} 
-                          } 
-                      }),
-                      delete: vi.fn().mockReturnThis()
-                  } as any;
+              const chain = {
+                  select: vi.fn().mockReturnThis(),
+                  eq: vi.fn().mockReturnThis(),
+                  single: vi.fn().mockResolvedValue({ 
+                      data: { 
+                          id: imageId, 
+                          user_id: mockUser.id,
+                          metadata: {} 
+                      } 
+                  }),
+                  delete: vi.fn().mockReturnThis(),
+                  neq: vi.fn().mockReturnThis(),
+                  in: vi.fn().mockReturnThis(),
+              } as any;
+
+              if (table === 'profiles') {
+                  chain.single.mockResolvedValue({ data: { gemini_api_key: 'test' } });
               }
-              return {} as any;
+              return chain;
           });
 
           mockSupabase.storage.remove.mockResolvedValue({ error: null });
@@ -329,48 +346,52 @@ describe('Image Actions', () => {
       it('should delete associated reference images if present in metadata', async () => {
         const imageId = 'img-with-refs';
         const storagePath = 'col/main_img.png';
-        const refImage = 'col/ref_1.png';
         
-        // Mock Metadata with legacy reference image path (simulated)
-        // The logic looks for paths containing "generated_images" or simple logic
-        // Let's provide a full URL that our logic detects as Supabase
-        const refUrl = `https://supabase.co/storage/v1/object/public/generated_images/${refImage}`;
+        // We now use Gemini URIs in metadata
+        const refUrl = `https://generativelanguage.googleapis.com/v1beta/files/123rec`;
 
         mockSupabase.from.mockImplementation((table) => {
-            if (table === 'images') {
-                return {
-                    select: vi.fn().mockReturnThis(),
-                    eq: vi.fn().mockReturnThis(),
-                    single: vi.fn().mockResolvedValue({ 
-                        data: { 
-                            id: imageId, 
-                            user_id: mockUser.id,
-                            metadata: {
-                                config: {
-                                    referenceImages: [refUrl]
-                                }
+            const chain = {
+                select: vi.fn().mockReturnThis(),
+                eq: vi.fn().mockReturnThis(),
+                neq: vi.fn().mockReturnThis(),
+                in: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ 
+                    data: { 
+                        id: imageId, 
+                        user_id: mockUser.id,
+                        metadata: {
+                            config: {
+                                referenceImages: [refUrl]
                             }
-                        } 
-                    }),
-                    delete: vi.fn().mockReturnThis()
-                } as any;
+                        }
+                    } 
+                }),
+                delete: vi.fn().mockReturnThis()
+            } as any;
+
+            if (table === 'profiles') {
+                chain.single.mockResolvedValue({ data: { gemini_api_key: 'test-api-key' } });
             }
-            return {} as any;
+            if (table === 'images' && chain.neq) {
+                // Mock the check for "other images needing this ref"
+                // The chain is .select().in().neq()
+                chain.neq.mockResolvedValue({ data: [], error: null }); // None need it
+            }
+            return chain;
         });
+
+        mockGenAIClient.files.delete.mockResolvedValue({}); // Return promise
 
         const removeMock = vi.fn().mockResolvedValue({ error: null });
         mockSupabase.storage.remove = removeMock;
 
         await deleteImageAction(imageId, storagePath);
 
-        // Expect TWO remove calls (or one with multiple files, depending on implementation details)
-        // My implementation calls remove(filesToDelete) for refs, and remove([storagePath]) for main.
-        // So 2 calls.
+        // 1. Reference cleanup (Gemini)
+        expect(mockGenAIClient.files.delete).toHaveBeenCalledWith({ name: 'files/123rec' });
         
-        // 1. Reference cleanup
-        expect(removeMock).toHaveBeenCalledWith([refImage]);
-        
-        // 2. Main image cleanup
+        // 2. Main image cleanup (Supabase)
         expect(removeMock).toHaveBeenCalledWith([storagePath]);
       });
   });
@@ -381,20 +402,13 @@ describe('Image Actions', () => {
 
           // Mock Ownership
           mockSupabase.from.mockImplementation((table) => {
-               if (table === 'collections') {
-                   return {
-                       select: vi.fn().mockReturnThis(),
-                       eq: vi.fn().mockReturnThis(),
-                       single: vi.fn().mockResolvedValue({ data: { id: collectionId } })
-                   } as any;
-               }
-               if (table === 'images') {
-                   return {
-                       delete: vi.fn().mockReturnThis(),
-                       eq: vi.fn().mockReturnThis()
-                   } as any;
-               }
-               return {} as any;
+               const chain = {
+                   select: vi.fn().mockReturnThis(),
+                   eq: vi.fn().mockReturnThis(),
+                   single: vi.fn().mockResolvedValue({ data: { id: collectionId } }),
+                   delete: vi.fn().mockReturnThis(),
+               } as any;
+               return chain;
           });
           
           mockSupabase.storage.list.mockResolvedValue({ data: [{ name: '1.png' }, { name: '2.png' }], error: null });
@@ -405,7 +419,6 @@ describe('Image Actions', () => {
           expect(mockSupabase.storage.list).toHaveBeenCalledWith(collectionId);
           expect(mockSupabase.storage.remove).toHaveBeenCalled(); // with paths
           expect(mockSupabase.from).toHaveBeenCalledWith('images');
-      });
-  });
-
+    });
+});
 });

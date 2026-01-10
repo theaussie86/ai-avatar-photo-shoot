@@ -413,16 +413,40 @@ export async function generateImageTask(
              console.error(`[Task ${imageId}] Double Fault: Failed to update status to failed!`, failUpdateError);
         }
     } finally {
-        // Cleanup Gemini Files
-        // User said: "If the image generation was successful, delete the files from the gemini files api."
-        if (generationSuccess && uploadedFiles.length > 0) {
-            console.log(`[Task ${imageId}] Cleaning up ${uploadedFiles.length} Gemini files...`);
-            for (const file of uploadedFiles) {
-                try {
-                    await client.files.delete({ name: file.name });
-                } catch (cleanupError) {
-                    console.error(`[Task ${imageId}] Failed to delete Gemini file ${file.name}:`, cleanupError);
+        // Refined Cleanup Gemini Files
+        // Don't delete if other pending or failed images still need these references
+        if (uploadedFiles.length > 0) {
+            try {
+                // 1. Fetch all other pending or failed images to see what's still needed
+                const { data: activeImages, error: fetchError } = await supabase
+                    .from('images')
+                    .select('metadata')
+                    .in('status', ['pending', 'failed']);
+
+                if (fetchError) {
+                    console.error(`[Task ${imageId}] Failed to fetch active images for cleanup check:`, fetchError);
+                } else {
+                    const allNeededUris = new Set<string>();
+                    activeImages?.forEach(img => {
+                        const config = (img.metadata as any)?.config;
+                        config?.referenceImages?.forEach((uri: string) => allNeededUris.add(uri));
+                    });
+
+                    // 2. Delete only URIs that are NOT in allNeededUris
+                    console.log(`[Task ${imageId}] Checking cleanup for ${uploadedFiles.length} Gemini files...`);
+                    for (const file of uploadedFiles) {
+                        if (!allNeededUris.has(file.uri)) {
+                            console.log(`[Task ${imageId}] URI ${file.uri} no longer needed (no pending or failed tasks). Cleaning up...`);
+                            await client.files.delete({ name: file.name }).catch(cleanupError => {
+                                console.error(`[Task ${imageId}] Failed to delete Gemini file ${file.name}:`, cleanupError);
+                            });
+                        } else {
+                            console.log(`[Task ${imageId}] URI ${file.uri} still needed by other tasks. Skipping cleanup.`);
+                        }
+                    }
                 }
+            } catch (err) {
+                console.error(`[Task ${imageId}] Error during granular cleanup:`, err);
             }
         }
     }
@@ -490,50 +514,60 @@ export async function deleteImageAction(imageId: string, storagePath: string) {
       throw new Error("Image not found or access denied");
   }
 
-  // 2. Cleanup Reference Images (if any in Supabase Storage)
-  // We check metadata for 'referenceImages' that might be stored in 'generated_images' (legacy or temp flow)
+  // 3. Cleanup Gemini Files (if any)
   try {
       const meta = image.metadata as any;
       const config = meta?.config as ImageGenerationConfig;
-      
-      if (config?.referenceImages && config.referenceImages.length > 0) {
-          const filesToDelete: string[] = [];
-          
-          for (const ref of config.referenceImages) {
-              // Check if this is a path in our storage (e.g. contains collectionId or 'generated_images')
-              // Our current flow uploads to Gemini directly (URIs), but previous flows or future 
-              // robust flows might store them. 
-              // If the URI looks like a Supabase public URL or a relative path, try to parse it.
-              
-              // Simple heuristic: if it contains the collection ID and doesn't start with 'http' (relative)
-              // OR if it is a full URL to OUR supabase.
-              
-              const isSupabaseUrl = ref.includes("supabase.co") || ref.includes("/storage/v1/object/public/");
-              if (isSupabaseUrl || !ref.startsWith("http")) {
-                   // Try to extract path. 
-                   // If relative: `collection_id/filename`
-                   // If absolute: extract after `/public/generated_images/`
-                   let path = ref;
-                   if (ref.includes("/generated_images/")) {
-                       path = ref.split("/generated_images/")[1];
-                   }
-                   
-                   if (path) filesToDelete.push(path);
-              }
-          }
+      const referenceImageUris = config?.referenceImages || [];
 
-          if (filesToDelete.length > 0) {
-              console.log(`[Delete] Cleaning up ${filesToDelete.length} reference images for ${imageId}`);
-              await supabase.storage
-                  .from('generated_images')
-                  .remove(filesToDelete);
+      if (referenceImageUris.length > 0) {
+          // Fetch API Key
+          const { data: profile } = await supabase
+              .from('profiles')
+              .select('gemini_api_key')
+              .eq('id', user.id)
+              .single();
+
+          if (profile?.gemini_api_key) {
+              const apiKey = decrypt(profile.gemini_api_key);
+              if (apiKey) {
+                  const client = new GoogleGenAI({ apiKey });
+                  
+                  // Fetch all OTHER pending or failed images
+                  const { data: activeImages } = await supabase
+                      .from('images')
+                      .select('metadata')
+                      .in('status', ['pending', 'failed'])
+                      .neq('id', imageId); // Exclude the current one
+
+                  const allNeededUris = new Set<string>();
+                  activeImages?.forEach(img => {
+                      const otherConfig = (img.metadata as any)?.config;
+                      otherConfig?.referenceImages?.forEach((uri: string) => allNeededUris.add(uri));
+                  });
+
+                  for (const uri of referenceImageUris) {
+                      if (!allNeededUris.has(uri)) {
+                          // Extract resource name
+                          let resourceName = "";
+                          if (uri.includes("/files/")) {
+                              resourceName = "files/" + uri.split("/files/")[1];
+                          }
+
+                          if (resourceName) {
+                              console.log(`[Delete] URI ${uri} no longer needed. Cleaning up Gemini file: ${resourceName}`);
+                              await client.files.delete({ name: resourceName }).catch(e => console.error(e));
+                          }
+                      }
+                  }
+              }
           }
       }
   } catch (err) {
-      console.warn("Failed to cleanup reference images, proceeding with image delete:", err);
+      console.warn("Failed to cleanup Gemini reference images during delete:", err);
   }
 
-  // 3. Delete Main Image from Storage
+  // 4. Delete Main Image from Storage
   // We don't throw if it fails, just log it, identifying that cleaning up the DB is priority
   if (storagePath && storagePath !== 'pending') {
       const { error: storageError } = await supabase
