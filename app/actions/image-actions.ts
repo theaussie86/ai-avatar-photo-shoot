@@ -153,55 +153,79 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
       // Shuffle poses to get random ones
       const shuffledPoses = [...availablePoses].sort(() => 0.5 - Math.random());
 
-      for (let i = 0; i < imagesToGenerate; i++) {
-        // 1. Select a unique pose
-        const pose = selectPose(validatedData.shotType, i, shuffledPoses);
-        
-        // 2. Refine Prompt (Client-side / Server Action side)
-        const finalPrompt = await refinePrompt(client, validatedData, pose);
-        
-        // 3. Create Placeholder in DB with FULL METADATA
-        // IMPORTANT: We now expect validatedData.referenceImages to contain GEMINI GENERATED URIs
-        // The client must have upheld this contract by calling uploadReferenceImage first.
-        const { data: imageRecord, error: insertError } = await supabase
-            .from('images')
-            .insert({
-                collection_id: collection.id,
-                user_id: user.id,
-                status: 'pending',
-                type: 'generated',
-                storage_path: 'pending',
-                url: '',
-                // Store all generation params in metadata so we can debug/retry if needed
-                metadata: {
-                    prompt: finalPrompt,
-                    pose: pose,
-                    config: validatedData, // Contains Gemini URIs now
-                }
-            })
-            .select()
-            .single();
+      // Phase 1: Create DB Records & Refine Prompts in Parallel
+      const tasksToTrigger: Array<{
+          imageId: string; 
+          apiKey: string; 
+          prompt: string; 
+          config: ImageGenerationConfig;
+          accessToken?: string;
+          refreshToken?: string;
+      }> = [];
 
-        if (insertError) {
-             console.error(`Failed to insert pending image record:`, insertError);
-             continue; 
-        }
+      await Promise.all(Array.from({ length: imagesToGenerate }).map(async (_, i) => {
+        try {
+            // Select a unique pose
+            const pose = selectPose(validatedData.shotType, i, shuffledPoses);
+            
+            // Refine Prompt
+            const finalPrompt = await refinePrompt(client, validatedData, pose);
+            
+            // Create Placeholder in DB
+            const { data: imageRecord, error: insertError } = await supabase
+                .from('images')
+                .insert({
+                    collection_id: collection.id,
+                    user_id: user.id,
+                    status: 'pending',
+                    type: 'generated',
+                    storage_path: 'pending',
+                    url: '',
+                    metadata: {
+                        prompt: finalPrompt,
+                        pose: pose,
+                        config: validatedData,
+                    }
+                })
+                .select()
+                .single();
 
-        // 4. Trigger Async Generation Task (Fire & Forget)
-        console.log(`[Action] Triggering Async Task for Image ${imageRecord.id}`);
-        const accessToken = session?.access_token;
-        const refreshToken = session?.refresh_token;
-
-        generateImageTask(imageRecord.id, apiKey, finalPrompt, validatedData, accessToken, refreshToken).catch(async (err) => {
-            console.error(`Unhandled error in background task for ${imageRecord.id}:`, err);
-            try {
-                 const safetySupabase = createClient();
-                 await (await safetySupabase).from('images').update({ status: 'failed' }).eq('id', imageRecord.id);
-            } catch (e) {
-                console.error("Failed to update status in safety catch:", e);
+            if (insertError) {
+                console.error(`Failed to insert pending image record:`, insertError);
+                return;
             }
-        });
-      }
+
+            // Queue for Phase 2
+            tasksToTrigger.push({
+                imageId: imageRecord.id,
+                apiKey,
+                prompt: finalPrompt,
+                config: validatedData,
+                accessToken: session?.access_token,
+                refreshToken: session?.refresh_token
+            });
+
+        } catch (err) {
+            console.error(`Error preparing image ${i}:`, err);
+        }
+      }));
+
+      // Phase 2: Trigger Async Tasks (now that all DB records exist)
+      // This prevents a race condition where a fast-failing task deletes reference files 
+      // before other tasks have even created their DB records.
+      tasksToTrigger.forEach(task => {
+          console.log(`[Action] Triggering Async Task for Image ${task.imageId}`);
+          generateImageTask(task.imageId, task.apiKey, task.prompt, task.config, task.accessToken, task.refreshToken)
+            .catch(async (err) => {
+                console.error(`Unhandled error in background task for ${task.imageId}:`, err);
+                try {
+                    const safetySupabase = createClient();
+                    await (await safetySupabase).from('images').update({ status: 'failed' }).eq('id', task.imageId);
+                } catch (e) {
+                    console.error("Failed to update status in safety catch:", e);
+                }
+            });
+      });
 
       return {
           success: true,

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
 import { createClient } from "@/lib/supabase/client"
 import { uploadReferenceImage } from "@/app/actions/image-actions"
+import { useMutation } from "@tanstack/react-query"
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -80,87 +81,70 @@ export function ConfigurationPanel({
     setReferenceFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleGenerateClick = async () => {
-     if (!onGenerate) return;
+  // Mutation for generation process
+  const { mutate: generateImages, isPending: isGenerating } = useMutation({
+    mutationFn: async () => {
+        // 1. Upload reference images (if any)
+        const uploadedImageUris: string[] = [];
+        const supabase = createClient();
+        
+        // Get current user for folder path validation
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Bitte melde dich an.");
 
-     // Upload reference images to Supabase Storage
-     const supabase = createClient();
-     
-     // Get current user for folder path
-     const { data: { user } } = await supabase.auth.getUser();
-     if (!user) {
-         alert("Bitte melde dich an, um Bilder zu generieren.");
-         return;
-     }
-
-     const uploadedImageUris: string[] = [];
-
-     // If we have files to upload
-     if (referenceFiles.length > 0) {
-         try {
-             // We upload sequentially or parallel. Parallel is likely fine.
+        if (referenceFiles.length > 0) {
              const uploadPromises = referenceFiles.map(async (file) => {
                  const formData = new FormData();
                  formData.append("file", file);
-                 
-                 // Server Action call
                  const result = await uploadReferenceImage(formData);
                  return result.uri;
              });
-
              const uris = await Promise.all(uploadPromises);
              uploadedImageUris.push(...uris);
+        }
 
-         } catch (error) {
-             console.error("Upload failed", error);
-             alert("Fehler beim Hochladen der Referenzbilder zu Gemini.");
-             return;
-         }
-     }
-    
-     // Combine uploaded URIs with any pre-existing remote URLs (though we mostly expect new uploads)
-     // If there were existing URLs (non-blob), they might currently be Supabase URLs.
-     // Since the user wants to move away from Supabase reference storage, we should ideally not mix them 
-     // unless we support legacy URLs. 
-     // But given the user says "I don't need reference images anymore", we assume new flow.
-     // We only include the NEWLY uploaded Gemini URIs for the generation.
-     // Existing 'blob:' URLs in referenceImages generated for preview are ignored.
-     const finalReferenceImages = uploadedImageUris;
+        const finalReferenceImages = uploadedImageUris;
 
-     const data: ImageGenerationConfig = {
-        imageCount,
-        referenceImages: finalReferenceImages,
-        background: background as any,
-        backgroundPrompt: background === 'custom' ? backgroundPrompt : undefined,
-        aspectRatio: aspectRatio as any,
-        shotType: shotType as any,
-        customPrompt: showCustomPrompt ? customPrompt : undefined,
-        collectionName,
-        collectionId,
+        const data: ImageGenerationConfig = {
+            imageCount,
+            referenceImages: finalReferenceImages,
+            background: background as any,
+            backgroundPrompt: background === 'custom' ? backgroundPrompt : undefined,
+            aspectRatio: aspectRatio as any,
+            shotType: shotType as any,
+            customPrompt: showCustomPrompt ? customPrompt : undefined,
+            collectionName,
+            collectionId,
+            model
+        };
 
-        model
-     }
+        // Validate
+        const validation = ImageGenerationSchema.safeParse(data);
+        if (!validation.success) {
+            throw new Error("Bitte überprüfe deine Eingaben: " + validation.error.message);
+        }
 
+        // Call Server Action
+        if (!onGenerate) throw new Error("Keine Generierungs-Funktion verfügbar.");
+        
+        // Return the result from the server action
+        // We cast to any because the prop definition might be void, but we know the action returns data
+        return await (onGenerate as any)(validation.data);
+    },
+    onSuccess: (result: any) => {
+        if (!collectionId && result?.success && result?.collectionId) {
+            router.push(`/collections/${result.collectionId}`);
+        }
+    },
+    onError: (error) => {
+        console.error("Generation failed:", error);
+        alert(error instanceof Error ? error.message : "Fehler bei der Generierung.");
+    }
+  });
 
-     const validation = ImageGenerationSchema.safeParse(data);
-     
-     if (!validation.success) {
-        alert("Bitte überprüfe deine Eingaben: " + validation.error.message);
-        return;
-     }
-
-     try {
-       // Await the generation action
-       const result = await (onGenerate as any)(validation.data);
-       
-       if (!collectionId && result?.success && result?.collectionId) {
-          router.push(`/collections/${result.collectionId}`);
-       }
-     } catch (error) {
-       console.error("Error triggering generation:", error);
-       alert("Fehler beim Starten der Generierung.");
-     }
-  }
+  const handleGenerateClick = () => {
+      generateImages();
+  };
 
   return (
     <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl">
@@ -375,9 +359,9 @@ export function ConfigurationPanel({
              variant="neon" 
              className="w-full col-span-full" 
              onClick={handleGenerateClick}
-             disabled={isPending}
-           >
-             {isPending ? "Generiere..." : "Bilder generieren"}
+              disabled={isPending || isGenerating}
+            >
+              {(isPending || isGenerating) ? "Generiere..." : "Bilder generieren"}
            </Button>
          ) : (
            <>
@@ -385,9 +369,9 @@ export function ConfigurationPanel({
                variant="neon" 
                className="w-full" 
                onClick={handleGenerateClick}
-               disabled={isPending}
+               disabled={isPending || isGenerating}
              >
-               {isPending ? "Generiere..." : "+ Bilder dazu generieren"}
+               {(isPending || isGenerating) ? "Generiere..." : "+ Bilder dazu generieren"}
              </Button>
              <Button 
                variant="destructive" 
