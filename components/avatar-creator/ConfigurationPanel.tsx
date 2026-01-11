@@ -19,8 +19,8 @@ import {
 import { cn } from "@/lib/utils"
 import { ImageGenerationSchema, ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
 import { createClient } from "@/lib/supabase/client"
-import { uploadReferenceImage } from "@/app/actions/image-actions"
 import { useMutation } from "@tanstack/react-query"
+import { v4 as uuidv4 } from 'uuid';
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -94,13 +94,26 @@ export function ConfigurationPanel({
 
         if (referenceFiles.length > 0) {
              const uploadPromises = referenceFiles.map(async (file) => {
-                 const formData = new FormData();
-                 formData.append("file", file);
-                 const result = await uploadReferenceImage(formData);
-                 return result.uri;
+                 const fileExt = file.name.split('.').pop();
+                 const fileName = `${uuidv4()}.${fileExt}`;
+                 // Structure: user_id/session_id/filename
+                 // We use a temporary session ID for this batch if collectionId doesn't exist yet
+                 const sessionId = collectionId || uuidv4();
+                 const filePath = `${user.id}/${sessionId}/${fileName}`;
+
+                 const { error: uploadError, data: uploadData } = await supabase.storage
+                    .from('uploaded_images')
+                    .upload(filePath, file);
+
+                 if (uploadError) {
+                     throw new Error(`Upload failed for ${file.name}: ${uploadError.message}`);
+                 }
+
+                 return uploadData.path; // Returns result like "user_id/session_id/filename.jpg"
              });
-             const uris = await Promise.all(uploadPromises);
-             uploadedImageUris.push(...uris);
+             const paths = await Promise.all(uploadPromises);
+             // We prefix with the bucket name to make it easy to identify on the server
+             uploadedImageUris.push(...paths.map(p => `uploaded_images/${p}`));
         }
 
         const finalReferenceImages = uploadedImageUris;

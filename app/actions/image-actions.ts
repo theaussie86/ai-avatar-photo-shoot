@@ -18,56 +18,6 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js"; // 
 
 
 // NEW: Direct Upload Action
-export async function uploadReferenceImage(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-
-  const file = formData.get("file") as File;
-  if (!file) throw new Error("No file provided");
-
-  // Get API Key
-  const { data: profile } = await supabase
-      .from('profiles')
-      .select('gemini_api_key')
-      .eq('id', user.id)
-      .single();
-
-  if (!profile?.gemini_api_key) throw new Error("No Gemini API Key found");
-  const apiKey = decrypt(profile.gemini_api_key);
-  if (!apiKey) throw new Error("Failed to decrypt API key");
-
-  const client = new GoogleGenAI({ apiKey });
-  
-  const arrayBuffer = await file.arrayBuffer();
-  // Determine mimeType from file.type or default
-  const mimeType = file.type || "image/jpeg";
-  
-  // Note: client.files.upload requires a Blob/Buffer/File matching the platform
-  // In Node environment for Server Actions, we might need a Blob or correct type
-  const fileBlob = new Blob([arrayBuffer], { type: mimeType });
-
-  const uploadResult: any = await client.files.upload({
-      file: fileBlob, 
-      config: { mimeType }
-  });
-
-  console.log("Upload Result:", JSON.stringify(uploadResult, null, 2));
-
-  // Check if uploadResult has 'file' property or if it IS the file object
-  const fileData = uploadResult.file || uploadResult;
-
-  if (!fileData || !fileData.uri) {
-      throw new Error(`Upload failed or unexpected response structure: ${JSON.stringify(uploadResult)}`);
-  }
-
-  return { 
-      uri: fileData.uri, 
-      name: fileData.name,
-      mimeType: fileData.mimeType 
-  };
-}
-
 export async function generateImagesAction(data: ImageGenerationConfig) {
   const validatedData = validateImageGenerationConfig(data);
 
@@ -95,6 +45,65 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
   if (!apiKey) {
       throw new Error("Failed to decrypt API key.");
   }
+  
+  // 1.5. Process Reference Images (Supabase -> Gemini)
+  // This bypasses the Vercel 4.5MB limit by having the client upload to Supabase, 
+  // and the server transferring it to Gemini.
+  const processedReferenceImages: string[] = [];
+  const client = new GoogleGenAI({ apiKey: apiKey });
+
+  if (validatedData.referenceImages && validatedData.referenceImages.length > 0) {
+      console.log(`[Action] Processing ${validatedData.referenceImages.length} reference images...`);
+      
+      for (const ref of validatedData.referenceImages) {
+          if (ref.startsWith('uploaded_images/')) {
+              console.log(`[Action] Transferring ${ref} from Supabase to Gemini...`);
+              
+              // 1. Download from Supabase
+              const { data: fileData, error: downloadError } = await supabase
+                  .storage
+                  .from('uploaded_images')
+                  .download(ref.replace('uploaded_images/', ''));
+
+              if (downloadError || !fileData) {
+                  console.error(`Failed to download ${ref}:`, downloadError);
+                  throw new Error(`Failed to retrieve uploaded image: ${ref}`);
+              }
+
+              // 2. Upload to Gemini
+              const arrayBuffer = await fileData.arrayBuffer();
+              const mimeType = fileData.type || 'image/jpeg';
+              
+              // Create a Blob from the array buffer (Node 18+ supports global Blob)
+              const fileBlob = new Blob([arrayBuffer], { type: mimeType });
+
+              const uploadResult: any = await client.files.upload({
+                  file: fileBlob, 
+                  config: { mimeType } 
+              }).catch(async (e) => {
+                  console.warn("Direct upload failed:", e);
+                  throw e;
+              });
+              
+              const geminiFile = uploadResult.file || uploadResult;
+              if (!geminiFile.uri) throw new Error("Gemini upload failed: No URI returned");
+              
+              console.log(`[Action] Transferred to Gemini: ${geminiFile.uri}`);
+              processedReferenceImages.push(geminiFile.uri);
+
+              // 3. Cleanup Supabase Storage
+              await supabase.storage
+                  .from('uploaded_images')
+                  .remove([ref.replace('uploaded_images/', '')]);
+
+          } else {
+              processedReferenceImages.push(ref);
+          }
+      }
+      // Update config with Gemini URIs
+      validatedData.referenceImages = processedReferenceImages;
+  }
+
 
   // 2. Get or Create Collection Record
   let collection;
@@ -141,7 +150,7 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
     collection = newCollection;
   }
 
-  const client = new GoogleGenAI({ apiKey: apiKey });
+  // const client = new GoogleGenAI({ apiKey: apiKey }); // Already created above
 
   console.log("Starting generation session for collection:", collection.id);
 
