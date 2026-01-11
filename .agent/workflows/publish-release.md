@@ -6,28 +6,33 @@ description: Publish a new release (bump version, push, release on GitHub)
 
 This workflow automates the process of creating a new release.
 
-1. Ensure your git working directory is clean.
-// turbo
-2. Check git status
+1. **Create a new branch** for your release (e.g., `release/vX.Y.Z`).
    ```bash
-   git status --porcelain
+   git checkout -b release/params
    ```
-   If the output is not empty, please commit or stash your changes before proceeding.
 
-3. Choose a release type (major, minor, or patch).
-   Run one of the following commands:
+2. **Run the release script.**
+   This will bump the version in `package.json` and create a commit.
 
    **For a Patch Release (0.0.x -> 0.0.x+1):**
    ```bash
-   node scripts/release.js patch
+   npm run release patch
    ```
 
    **For a Minor Release (0.x.0 -> 0.x+1.0):**
    ```bash
-   node scripts/release.js minor
+   npm run release minor
    ```
 
    **For a Major Release (x.0.0 -> x+1.0.0):**
    ```bash
-   node scripts/release.js major
+   npm run release major
    ```
+
+3. **Push the branch and open a Pull Request.**
+   ```bash
+   git push -u origin HEAD
+   ```
+
+4. **Merge the Pull Request into `main`.**
+   Once merged, the GitHub Action will automatically create the `vX.Y.Z` tag and a GitHub Release.
