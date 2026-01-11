@@ -219,26 +219,10 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
         }
       }));
 
-      // Phase 2: Trigger Async Tasks (now that all DB records exist)
-      // This prevents a race condition where a fast-failing task deletes reference files 
-      // before other tasks have even created their DB records.
-      tasksToTrigger.forEach(task => {
-          console.log(`[Action] Triggering Async Task for Image ${task.imageId}`);
-          generateImageTask(task.imageId, task.apiKey, task.prompt, task.config, task.accessToken, task.refreshToken)
-            .catch(async (err) => {
-                console.error(`Unhandled error in background task for ${task.imageId}:`, err);
-                try {
-                    const safetySupabase = createClient();
-                    await (await safetySupabase).from('images').update({ status: 'failed' }).eq('id', task.imageId);
-                } catch (e) {
-                    console.error("Failed to update status in safety catch:", e);
-                }
-            });
-      });
-
       return {
           success: true,
           collectionId: collection.id,
+          imageIds: tasksToTrigger.map(t => t.imageId),
           images: [], 
       };
 
@@ -547,58 +531,9 @@ export async function deleteImageAction(imageId: string, storagePath: string) {
       throw new Error("Image not found or access denied");
   }
 
-  // 3. Cleanup Gemini Files (if any)
-  try {
-      const meta = image.metadata as any;
-      const config = meta?.config as ImageGenerationConfig;
-      const referenceImageUris = config?.referenceImages || [];
+  // 3. Cleanup Gemini Files (Skipped per user request)
+  // User requested to not delete files from Gemini API when deleting an image.
 
-      if (referenceImageUris.length > 0) {
-          // Fetch API Key
-          const { data: profile } = await supabase
-              .from('profiles')
-              .select('gemini_api_key')
-              .eq('id', user.id)
-              .single();
-
-          if (profile?.gemini_api_key) {
-              const apiKey = decrypt(profile.gemini_api_key);
-              if (apiKey) {
-                  const client = new GoogleGenAI({ apiKey });
-                  
-                  // Fetch all OTHER pending or failed images
-                  const { data: activeImages } = await supabase
-                      .from('images')
-                      .select('metadata')
-                      .in('status', ['pending', 'failed'])
-                      .neq('id', imageId); // Exclude the current one
-
-                  const allNeededUris = new Set<string>();
-                  activeImages?.forEach(img => {
-                      const otherConfig = (img.metadata as any)?.config;
-                      otherConfig?.referenceImages?.forEach((uri: string) => allNeededUris.add(uri));
-                  });
-
-                  for (const uri of referenceImageUris) {
-                      if (!allNeededUris.has(uri)) {
-                          // Extract resource name
-                          let resourceName = "";
-                          if (uri.includes("/files/")) {
-                              resourceName = "files/" + uri.split("/files/")[1];
-                          }
-
-                          if (resourceName) {
-                              console.log(`[Delete] URI ${uri} no longer needed. Cleaning up Gemini file: ${resourceName}`);
-                              await client.files.delete({ name: resourceName }).catch(e => console.error(e));
-                          }
-                      }
-                  }
-              }
-          }
-      }
-  } catch (err) {
-      console.warn("Failed to cleanup Gemini reference images during delete:", err);
-  }
 
   // 4. Delete Main Image from Storage
   // We don't throw if it fails, just log it, identifying that cleaning up the DB is priority
@@ -711,6 +646,61 @@ export async function retriggerImageAction(imageId: string) {
     // has access to cookies, but we need to extract tokens.
     const { data: { session } } = await supabase.auth.getSession();
     generateImageTask(imageId, apiKey, meta.prompt, meta.config, session?.access_token, session?.refresh_token).catch(console.error);
+
+    return { success: true };
+}
+
+export async function triggerImageGenerationAction(imageId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // 1. Fetch Image & Verify Ownership
+    const { data: image } = await supabase
+        .from('images')
+        .select('*')
+        .eq('id', imageId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!image) throw new Error("Image not found");
+
+    // If already completed, skip
+    if (image.status === 'completed') {
+        return { success: true, status: 'completed' };
+    }
+
+    // 2. Get API Key from Profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('gemini_api_key')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile?.gemini_api_key) throw new Error("API Key not found");
+    const apiKey = decrypt(profile.gemini_api_key);
+    if (!apiKey) throw new Error("Failed to decrypt API key");
+
+    // 3. Trigger Generation (AWAITED for client connection persistence)
+    const meta = image.metadata as any;
+    if (!meta || !meta.prompt || !meta.config) {
+         // Mark as failed if we can't generate
+         await supabase.from('images').update({ status: 'failed' }).eq('id', imageId);
+         throw new Error("Missing metadata");
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // We await this now!
+    await generateImageTask(
+        imageId, 
+        apiKey, 
+        meta.prompt, 
+        meta.config, 
+        session?.access_token, 
+        session?.refresh_token
+    );
 
     return { success: true };
 }
