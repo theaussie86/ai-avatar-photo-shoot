@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 interface Image {
   id: string
@@ -76,11 +77,12 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
         } else {
              router.refresh()
         }
+        toast.success("Bild gelöscht")
         setImageToDelete(null)
     },
     onError: (error) => {
         console.error("Failed to delete image:", error)
-        alert("Fehler beim Löschen des Bildes")
+        toast.error("Fehler beim Löschen des Bildes")
     }
   })
 

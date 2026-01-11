@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 interface CollectionDetailClientProps {
   collection: any
@@ -59,7 +60,9 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
     },
     onError: (error) => {
       console.error("Failed to generate:", error)
-      alert("Fehler bei der Generierung")
+      toast.error("Fehler bei der Generierung", {
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+      })
     }
   })
 
@@ -70,12 +73,15 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
     },
     onSuccess: () => {
        // Force a hard refresh or redirect to ensure list state is clean
+       toast.success("Shooting gelöscht")
        router.push("/collections");
        router.refresh();
     },
     onError: (error) => {
        console.error("Delete failed:", error);
-       alert("Fehler beim Löschen");
+       toast.error("Fehler beim Löschen", {
+         description: "Das Shooting konnte nicht gelöscht werden."
+       });
     }
   })
 
@@ -85,11 +91,12 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
         await deleteCollectionImagesAction(collection.id)
     },
     onSuccess: () => {
+        toast.success("Alle Bilder gelöscht")
         queryClient.invalidateQueries({ queryKey: ['collection-images', collection.id] })
     },
     onError: (error) => {
         console.error("Failed to delete all images:", error)
-        alert("Fehler beim Löschen aller Bilder")
+        toast.error("Fehler beim Löschen aller Bilder")
     }
   })
   
@@ -132,10 +139,11 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
           link.click()
           document.body.removeChild(link)
           window.URL.revokeObjectURL(downloadUrl)
+          toast.success("Download gestartet")
 
       } catch (error) {
           console.error("Failed to create zip:", error)
-          alert("Fehler beim Erstellen der ZIP-Datei")
+          toast.error("Fehler beim Erstellen der ZIP-Datei")
       } finally {
           setIsDownloading(false)
       }

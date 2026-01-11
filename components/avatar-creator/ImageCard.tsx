@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 interface ImageCardProps {
   initialImage: any
@@ -41,12 +42,13 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
     },
     onSuccess: () => {
         // Update parent list
+        toast.success("Bild gelöscht")
         queryClient.invalidateQueries({ queryKey: ['collection-images', image.collection_id] })
         setIsDeleteDialogOpen(false)
     },
     onError: (error) => {
         console.error("Failed to delete image:", error)
-        alert("Fehler beim Löschen des Bildes")
+        toast.error("Fehler beim Löschen des Bildes")
     }
   })
 
@@ -57,11 +59,14 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
     },
     onSuccess: () => {
         // Invalidate list to show pending state
+        toast.success("Bild neu eingereiht")
         queryClient.invalidateQueries({ queryKey: ['collection-images', image.collection_id] })
     },
     onError: (error) => {
         console.error("Failed to retrigger:", error)
-        alert("Neustart fehlgeschlagen")
+        toast.error("Neustart fehlgeschlagen", {
+             description: "Bitte versuche es später erneut."
+        })
     }
   })
 
