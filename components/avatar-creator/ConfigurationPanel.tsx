@@ -2,7 +2,18 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Lock, Upload, Image as ImageIcon, Camera, X } from "lucide-react"
+import { Lock, Upload, Image as ImageIcon, Camera, X, RotateCcw } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -22,6 +33,7 @@ import { ImageGenerationSchema, type ImageGenerationConfig, ASPECT_RATIOS, SHOT_
 import { createClient } from "@/lib/supabase/client"
 import { useMutation } from "@tanstack/react-query"
 import { v4 as uuidv4 } from 'uuid';
+import { saveImages, loadImages, clearImages, saveConfig, loadConfig, clearConfig } from "@/lib/image-persistence"
 // React Hook Form imports
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -48,6 +60,18 @@ export function ConfigurationPanel({
   initialValues
 }: ConfigurationPanelProps) {
     const router = useRouter()
+    const [isLoaded, setIsLoaded] = React.useState(false)
+
+    // Local state for the "Use Custom Prompt" switch
+    const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
+
+    // Local state for tracking Files to upload
+    // Structure: { url: string, file?: File }
+    const [localImages, setLocalImages] = React.useState<{ url: string, file?: File }[]>(
+        (initialValues?.referenceImages || []).map(url => ({ url }))
+    );
+
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
     
     // We keep file objects in local state because they are not serializable 
     // and maintaining them in RHF state alongside URLs can be tricky if we want to match the schema strictly (array of strings).
@@ -55,13 +79,7 @@ export function ConfigurationPanel({
     // - RHF manages `referenceImages` (array of strings - existing URLs or blob URLs)
     // - We track `images` locally to hold the File objects corresponding to blob URLs.
     
-    const { 
-        control, 
-        handleSubmit, 
-        setValue, 
-        watch, 
-        formState: { errors, isSubmitting } 
-    } = useForm<ImageGenerationConfig>({
+    const form = useForm<ImageGenerationConfig>({
         // Cast to any to avoid strict type mismatch with Zod defaults vs RHF internal types
         resolver: zodResolver(ImageGenerationSchema) as any,
         defaultValues: {
@@ -79,30 +97,116 @@ export function ConfigurationPanel({
         }
     })
 
-    // Watch values for conditional rendering
-    const watchBackground = watch("background")
-    const watchShowCustomPrompt = watch("customPrompt") // logic handled slightly differently below
-    
-    // Local state for the "Use Custom Prompt" switch, as the schema has `customPrompt` string, 
-    // but the UI has a toggler. 
-    // If switch is OFF, we might want to clear or ignore the prompt.
-    // The previous implementation used `showCustomPrompt` state.
-    // We can infer it: if `customPrompt` has value, it's ON? 
-    // Or keep a separate state for the UI toggle.
-    const [showCustomPrompt, setShowCustomPrompt] = React.useState(!!initialValues?.customPrompt)
-
-    // Local state for tracking Files to upload
-    // Structure: { url: string, file?: File }
-    const [localImages, setLocalImages] = React.useState<{ url: string, file?: File }[]>(
-        (initialValues?.referenceImages || []).map(url => ({ url }))
-    );
+    const { 
+        control, 
+        handleSubmit, 
+        setValue, 
+        watch, 
+        reset,
+        formState: { errors, isSubmitting } 
+    } = form
 
     // Sync RHF with local images
     React.useEffect(() => {
         setValue('referenceImages', localImages.map(i => i.url), { shouldValidate: true });
     }, [localImages, setValue]);
 
-    const fileInputRef = React.useRef<HTMLInputElement>(null)
+    // Load from IndexedDB on mount
+    React.useEffect(() => {
+        const load = async () => {
+            // 1. Config
+            try {
+                const savedConfig = await loadConfig()
+                if (savedConfig) {
+                     // specific Reset to ensure we don't overwrite crucial props like collectionId if needed, 
+                    // but usually user config overrides defaults.
+                    // We merge with initial default values to ensure all fields exist
+                    reset({ ...savedConfig, collectionId }) 
+                    
+                    // If custom prompt was saved, ensure toggle is on
+                    if (savedConfig.customPrompt) setShowCustomPrompt(true)
+                }
+            } catch (e) {
+                console.error("Failed to load config from DB", e)
+            }
+
+            // 2. Images
+            try {
+                const files = await loadImages()
+                if (files && files.length > 0) {
+                    const imagesWithUrls = files.map(file => ({
+                        url: URL.createObjectURL(file), // Create new blob URL for the session
+                        file
+                    }))
+                    setLocalImages(imagesWithUrls)
+                    // Trigger RHF update handles validation
+                    setValue('referenceImages', imagesWithUrls.map(i => i.url), { shouldValidate: true }) 
+                }
+            } catch (e) {
+                console.error("Failed to load images from DB", e)
+            }
+            
+            setIsLoaded(true)
+        }
+        load()
+    }, [reset, collectionId, setValue])
+
+    // Watch values for conditional rendering and persistence
+    const watchBackground = watch("background")
+    const watchShowCustomPrompt = watch("customPrompt") // logic handled slightly differently below
+    
+    // Subscribe to changes and save to IndexedDB
+    React.useEffect(() => {
+        if (!isLoaded) return
+
+        const subscription = watch(async (value) => {
+            const { referenceImages, collectionId, tempStorageId, ...configToSave } = value
+            await saveConfig(configToSave)
+        })
+        return () => subscription.unsubscribe()
+    }, [watch, isLoaded])
+
+    // Save images to IndexedDB whenever they change
+    React.useEffect(() => {
+        if (!isLoaded) return
+        
+        const save = async () => {
+            const filesToSave = localImages.map(img => img.file).filter((f): f is File => !!f)
+            await saveImages(filesToSave)
+        }
+        // Debounce slightly or just save? Saving images might be heavy if done too often, 
+        // but user interaction is slow (adding one by one).
+        const timer = setTimeout(save, 500)
+        return () => clearTimeout(timer)
+    }, [localImages, isLoaded])
+
+    // Handle Reset
+    const handleReset = async () => {
+        // Confirmation is now handled by AlertDialog
+        await clearConfig()
+        await clearImages()
+        
+        const defaults = {
+            imageCount: [1],
+            referenceImages: [],
+            background: "white",
+            backgroundPrompt: "",
+            aspectRatio: "Auto",
+            shotType: "full_body",
+            customPrompt: "",
+            collectionName: "",
+            collectionId: collectionId, // preserve collectionId
+            tempStorageId: undefined,
+            model: "gemini-2.5-flash-image",
+        }
+        // @ts-ignore
+        reset(defaults)
+        setLocalImages([])
+        setShowCustomPrompt(false)
+        toast.success("Einstellungen zurückgesetzt")
+    }
+    
+
 
     const handleFileAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -187,11 +291,51 @@ export function ConfigurationPanel({
     };
 
   return (
-    <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl">
-      
+    <div className="space-y-8 p-6 rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl relative">
+      {/* Loading Overlay or Disabled State */}
+      {!isLoaded && (
+          <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <div className="text-white text-sm">Konfiguration wird geladen...</div>
+          </div>
+      )}
+
+      <fieldset disabled={!isLoaded} className="space-y-8 contents">
+
       {/* Collection Name */}
        <div className="space-y-4">
-            <Label className="text-base font-medium text-gray-200">Name des Shootings <span className="text-red-500">*</span></Label>
+            <div className="flex items-center justify-between">
+                <Label className="text-base font-medium text-gray-200">Name des Shootings <span className="text-red-500">*</span></Label>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button 
+                            variant="outline" 
+                            className="h-8 gap-2 border-white/10 bg-transparent text-xs px-2 text-muted-foreground hover:bg-white/5 hover:text-white"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Reset Config</span>
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-gray-900 border-white/10 text-white">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Konfiguration zurücksetzen?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-gray-400">
+                                Möchtest du wirklich alle Einstellungen und Referenzbilder zurücksetzen? Das Formular wird geleert.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction 
+                                onClick={(e) => {
+                                    handleReset()
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white border-none"
+                            >
+                                Zurücksetzen
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
             <Controller
                 name="collectionName"
                 control={control}
@@ -279,6 +423,7 @@ export function ConfigurationPanel({
                             variant={field.value === "green" ? "default" : "outline"}
                             className={cn(
                             "w-full justify-start border-green-900/50 hover:bg-green-900/30",
+                            "hover:text-green-500", // Fix hover text color
                             field.value === "green" ? "bg-green-900/40 text-green-400 border-green-500" : "bg-green-900/20 text-green-500"
                             )}
                             onClick={() => field.onChange("green")}
@@ -492,7 +637,8 @@ export function ConfigurationPanel({
            </>
          )}
        </div>
-       {process.env.NODE_ENV === 'development' && <DevTool control={control} />}
+       </fieldset>
+       {/* {process.env.NODE_ENV === 'development' && <DevTool control={control} />} */}
     </div>
   )
 }

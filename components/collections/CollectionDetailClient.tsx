@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { ConfigurationPanel } from "@/components/avatar-creator/ConfigurationPanel"
-import { generateImagesAction, deleteCollectionAction, getCollectionImagesAction, deleteCollectionImagesAction } from "@/app/actions/image-actions"
+import { 
+    generateImagesAction, 
+    deleteCollectionAction, 
+    getCollectionImagesAction, 
+    deleteCollectionImagesAction,
+    triggerImageGenerationAction 
+} from "@/app/actions/image-actions"
 import { ImageGallery } from "@/components/avatar-creator/ImageGallery"
 import { ImageGenerationConfig } from "@/lib/schemas"
 import { Button } from "@/components/ui/button"
@@ -33,20 +39,49 @@ interface CollectionDetailClientProps {
 export function CollectionDetailClient({ collection, images: initialImages }: CollectionDetailClientProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  
+  // Track which images we have already triggered generation for in this session
+  // to avoid spamming the server if the status update is slow.
+  const triggeredImagesRef = React.useRef<Set<string>>(new Set());
 
   // React Query for Images List
   const { data: images } = useQuery({
       queryKey: ['collection-images', collection.id],
       queryFn: () => getCollectionImagesAction(collection.id),
       initialData: initialImages,
-      // Refetch every 2 seconds if any image in the list has a 'pending' status
+      // Refetch every 3 seconds if any image in the list has a 'pending' status
       refetchInterval: (query) => {
           const hasPending = query.state.data?.some((img: any) => img.status === 'pending');
-          return hasPending ? 2000 : false;
+          return hasPending ? 3000 : false;
       }
   })
 
-  // Image generation mutation
+  // Trigger Action for individual images
+  const triggerMutation = useMutation({
+      mutationFn: async (imageId: string) => {
+          console.log("Triggering generation for:", imageId);
+          return await triggerImageGenerationAction(imageId);
+      },
+      onError: (err, imageId) => {
+          console.error(`Failed to trigger image ${imageId}:`, err);
+          // Optional: toast error? Might be too noisy if many fail.
+      }
+  });
+
+  // Effect: Watch for "pending" images and trigger them if not already triggered
+  React.useEffect(() => {
+      if (!images) return;
+
+      images.forEach((img: any) => {
+          if (img.status === 'pending' && !triggeredImagesRef.current.has(img.id)) {
+              triggeredImagesRef.current.add(img.id);
+              triggerMutation.mutate(img.id);
+          }
+      });
+  }, [images, triggerMutation]);
+
+
+  // Image generation mutation (Initial creation)
   const generateMutation = useMutation({
     mutationFn: async (data: ImageGenerationConfig) => {
       return await generateImagesAction({
@@ -54,9 +89,13 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
         collectionId: collection.id
       })
     },
-    onSuccess: () => {
-      // Invalidate to fetch new pending images
-      queryClient.invalidateQueries({ queryKey: ['collection-images', collection.id] })
+    onSuccess: (result) => {
+      if (result.success && result.imageIds) {
+           // We invalidate queries, which will fetch the new "pending" images.
+           // The useEffect above will then catch them and trigger the actual generation.
+          queryClient.invalidateQueries({ queryKey: ['collection-images', collection.id] })
+          toast.success(`${result.imageIds.length} Bilder eingereiht`);
+      }
     },
     onError: (error) => {
       console.error("Failed to generate:", error)
@@ -116,6 +155,7 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
           // Fetch all images
           const promises = images.map(async (img: any, index: number) => {
               try {
+                  if (img.status !== 'completed' || !img.url) return;
                   const response = await fetch(img.url)
                   const blob = await response.blob()
                   const fileName = `image-${index + 1}.png`
