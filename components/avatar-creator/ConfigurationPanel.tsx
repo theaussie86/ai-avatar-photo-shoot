@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 // React Hook Form imports
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { DevTool } from '@hookform/devtools'
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -483,6 +484,7 @@ export function ConfigurationPanel({
            </>
          )}
        </div>
+       {process.env.NODE_ENV === 'development' && <DevTool control={control} />}
     </div>
   )
 }
