@@ -26,6 +26,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { DevTool } from '@hookform/devtools'
+import { toast } from "sonner"
 
 interface ConfigurationPanelProps {
   hasGeneratedImages?: boolean;
@@ -165,12 +166,19 @@ export function ConfigurationPanel({
         },
         onSuccess: (result: any) => {
              if (!collectionId && result?.success && result?.collectionId) {
+                toast.success("Bilder-Generierung gestartet!", {
+                    description: "Du wirst weitergeleitet...",
+                })
                 router.push(`/collections/${result.collectionId}`);
+            } else if (result?.success) {
+                toast.success("Bilder erfolgreich eingereiht!");
             }
         },
         onError: (error) => {
              console.error("Generierung fehlgeschlagen:", error);
-             alert(error instanceof Error ? error.message : "Fehler.");
+             toast.error("Ein Fehler ist aufgetreten", {
+                 description: error instanceof Error ? error.message : "Unbekannter Fehler",
+             });
         }
     });
 
