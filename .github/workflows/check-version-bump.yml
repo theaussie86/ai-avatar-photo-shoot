@@ -23,7 +23,6 @@ jobs:
           # Get base version (from the branch we are merging into)
           git checkout origin/${{ github.base_ref }} package.json
           OLD_VERSION=$(node -p "require('./package.json').version")
-          git checkout -
           
           echo "Base Version: $OLD_VERSION"
           echo "PR Version:   $NEW_VERSION"
