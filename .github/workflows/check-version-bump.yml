@@ -1,0 +1,35 @@
+name: Check Version Bump
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if package.json version is bumped
+        run: |
+          # Get current version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          
+          # Get base version (from the branch we are merging into)
+          git checkout origin/${{ github.base_ref }} package.json
+          OLD_VERSION=$(node -p "require('./package.json').version")
+          
+          echo "Base Version: $OLD_VERSION"
+          echo "PR Version:   $NEW_VERSION"
+          
+          if [ "$OLD_VERSION" == "$NEW_VERSION" ]; then
+            echo "::error::Version in package.json has not been bumped. Please run 'npm run release <type>' before merging."
+            exit 1
+          fi
+          
+          echo "Success: Version bumped from $OLD_VERSION to $NEW_VERSION."

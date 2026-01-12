@@ -17,6 +17,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
       - name: Get version from package.json
         id: get_version
         run: echo "VERSION=v$(node -p "require('./package.json').version")" >> $GITHUB_ENV
@@ -28,8 +34,21 @@ jobs:
             echo "Tag ${{ env.VERSION }} already exists. Skipping release."
             echo "exists=true" >> $GITHUB_OUTPUT
           else
+            echo "Tag ${{ env.VERSION }} does not exist. Creating release."
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Configure Git
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create Tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git tag ${{ env.VERSION }}
+          git push origin ${{ env.VERSION }}
 
       - name: Create Release
         if: steps.check_tag.outputs.exists == 'false'
