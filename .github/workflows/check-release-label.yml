@@ -1,0 +1,30 @@
+name: Check Release Label
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for release labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: number,
+            });
+
+            const labels = pullRequest.labels.map(label => label.name);
+            const releaseLabels = ['major', 'minor', 'patch'];
+            const hasReleaseLabel = labels.some(label => releaseLabels.includes(label));
+
+            if (!hasReleaseLabel) {
+              core.setFailed('Pull request must have one of the following labels: major, minor, patch');
+            } else {
+              console.log('Release label found.');
+            }
