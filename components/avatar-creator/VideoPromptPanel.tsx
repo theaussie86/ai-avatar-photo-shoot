@@ -1,9 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
+import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
+import { VideoPromptConfig } from "@/components/avatar-creator/VideoPromptConfig"
+import { CameraStyleType, FilmEffectType } from "@/lib/video-prompt-schemas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Video } from "lucide-react"
+import { AlertCircle, Video, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface VideoPromptPanelProps {
   imageId: string | null
@@ -11,9 +16,34 @@ interface VideoPromptPanelProps {
 
 export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const { data: prompts, isLoading, error } = useVideoPrompts(imageId)
+  const generateMutation = useGenerateVideoPrompt()
 
   // Get most recent prompt (first in array, sorted by created_at desc)
   const currentPrompt = prompts?.[0]
+
+  // State for configuration selections (defaults from CONTEXT.md)
+  const [selectedCameraStyle, setSelectedCameraStyle] = useState<CameraStyleType | null>("cinematic")
+  const [selectedFilmEffect, setSelectedFilmEffect] = useState<FilmEffectType | null>("soft")
+
+  // Generate handler
+  const handleGenerate = () => {
+    if (!imageId) return
+
+    generateMutation.mutate({
+      imageId,
+      cameraStyle: selectedCameraStyle || "static",
+      filmEffects: selectedFilmEffect ? [selectedFilmEffect] : [],
+    }, {
+      onSuccess: () => {
+        toast.success("Video-Prompt erstellt!")
+      },
+      onError: (error) => {
+        toast.error("Fehler beim Erstellen", {
+          description: error instanceof Error ? error.message : "Unbekannter Fehler"
+        })
+      }
+    })
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -50,30 +80,59 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
 
         {/* Empty state - no prompts exist */}
         {!isLoading && !error && !currentPrompt && (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-              <Video className="h-6 w-6 text-purple-500" />
-            </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Noch kein Video-Prompt vorhanden
-            </p>
+          <div className="space-y-6">
+            <VideoPromptConfig
+              selectedCameraStyle={selectedCameraStyle}
+              selectedFilmEffect={selectedFilmEffect}
+              onCameraStyleChange={setSelectedCameraStyle}
+              onFilmEffectChange={setSelectedFilmEffect}
+              disabled={generateMutation.isPending}
+            />
             <Button
-              variant="outline"
-              className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
-              disabled
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             >
-              Generiere einen Video-Prompt
+              {generateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generiere...
+                </>
+              ) : (
+                "Video-Prompt erstellen"
+              )}
             </Button>
-            <p className="text-xs text-gray-500 mt-2">
-              Kommt in Phase 5
-            </p>
           </div>
         )}
 
         {/* Prompt display - has content */}
         {!isLoading && !error && currentPrompt && (
-          <div className="space-y-4">
-            {/* Prompt text in styled container */}
+          <div className="space-y-6">
+            {/* Config controls for regeneration */}
+            <VideoPromptConfig
+              selectedCameraStyle={selectedCameraStyle}
+              selectedFilmEffect={selectedFilmEffect}
+              onCameraStyleChange={setSelectedCameraStyle}
+              onFilmEffectChange={setSelectedFilmEffect}
+              disabled={generateMutation.isPending}
+            />
+            <Button
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              variant="outline"
+              className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+            >
+              {generateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generiere neu...
+                </>
+              ) : (
+                "Neuen Prompt erstellen"
+              )}
+            </Button>
+
+            {/* Existing prompt display */}
             <div className="bg-white/5 rounded-lg p-4 border border-white/10">
               <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
                 {currentPrompt.prompt_text}
@@ -92,17 +151,6 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Action area at bottom (placeholder for Phase 6) */}
-      <div className="px-4 py-3 border-t border-white/10 shrink-0">
-        <Button
-          className="w-full"
-          variant="outline"
-          disabled
-        >
-          Kopieren (Phase 6)
-        </Button>
       </div>
     </div>
   )
