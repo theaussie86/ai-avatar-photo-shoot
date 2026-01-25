@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2025-01-25)
 
 **Core value:** Startbilder und Video-Prompts gehören zusammen in einem Arbeitsbereich
-**Current focus:** Phase 5 - Configuration Controls
+**Current focus:** Phase 6 - Copy & Save System
 
 ## Current Position
 
-Phase: 5 of 8 (Configuration Controls)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-25 - Completed 05-01-PLAN.md
+Phase: 6 of 8 (Copy & Save System)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-25 - Phase 5 completed (Configuration Controls)
 
-Progress: [██████░░░░] 62.5%
+Progress: [██████░░░░] 62%
 
 ## Performance Metrics
 

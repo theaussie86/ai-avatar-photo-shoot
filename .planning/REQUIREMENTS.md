@@ -27,9 +27,9 @@
 
 ### Konfiguration
 
-- [ ] **CONF-01**: Nutzer kann Kamera-Stil auswählen (Cinematic, Slow Motion, Zoom-In, Orbit, Dolly, Statisch)
-- [ ] **CONF-02**: Nutzer kann Film-Effekte auswählen (Dramatisch, Weich, Golden Hour, Noir, Verträumt)
-- [ ] **CONF-03**: Ausgewählte Optionen werden in Prompt-Generierung einbezogen
+- [x] **CONF-01**: Nutzer kann Kamera-Stil auswählen (Cinematic, Slow Motion, Zoom-In, Orbit, Dolly, Statisch)
+- [x] **CONF-02**: Nutzer kann Film-Effekte auswählen (Dramatisch, Weich, Golden Hour, Noir, Verträumt)
+- [x] **CONF-03**: Ausgewählte Optionen werden in Prompt-Generierung einbezogen
 
 ### Kopieren & Speichern
 
@@ -94,9 +94,9 @@
 | GEN-02 | Phase 2 | Complete |
 | GEN-03 | Phase 2 | Complete |
 | GEN-04 | Phase 2 | Complete (adjusted to English) |
-| CONF-01 | Phase 5 | Pending |
-| CONF-02 | Phase 5 | Pending |
-| CONF-03 | Phase 5 | Pending |
+| CONF-01 | Phase 5 | Complete |
+| CONF-02 | Phase 5 | Complete |
+| CONF-03 | Phase 5 | Complete |
 | SAVE-01 | Phase 6 | Pending |
 | SAVE-02 | Phase 6 | Pending |
 | SAVE-03 | Phase 1 | Complete |

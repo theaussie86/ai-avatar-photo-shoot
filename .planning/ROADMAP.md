@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Core Prompt Generation** - Gemini integration for video prompt generation (English prompts, German UI)
 - [x] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
 - [x] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
-- [ ] **Phase 5: Configuration Controls** - Camera style and film effect selection
+- [x] **Phase 5: Configuration Controls** - Camera style and film effect selection
 - [ ] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
 - [ ] **Phase 7: Variants & Navigation** - Multiple prompts per image with navigation UI
 - [ ] **Phase 8: AI Suggestions & Quality Feedback** - Contextual suggestions and prompt length guidance
@@ -102,7 +102,9 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md - Configuration chips and generation integration
+- [x] 05-01-PLAN.md - Configuration chips and generation integration
+
+**Completed Note**: Chip-based camera style (6 options) and film effect (5 options) selection integrated into VideoPromptPanel. React Query mutation with cache invalidation enables prompt generation. Default selections: Cinematic + Weich.
 
 ### Phase 6: Copy & Save System
 **Goal**: Users can copy prompts to clipboard and prompts persist in database
@@ -160,7 +162,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 2. Core Prompt Generation | 3/3 | Complete | 2026-01-25 |
 | 3. Image Preview Enhancement | 2/2 | Complete | 2026-01-25 |
 | 4. Panel UI Foundation | 1/1 | Complete | 2026-01-25 |
-| 5. Configuration Controls | 0/TBD | Not started | - |
+| 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
 | 6. Copy & Save System | 0/TBD | Not started | - |
 | 7. Variants & Navigation | 0/TBD | Not started | - |
 | 8. AI Suggestions & Quality Feedback | 0/TBD | Not started | - |
