@@ -12,7 +12,7 @@ This roadmap delivers video prompt generation capability to the AI Avatar Photo 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Database Foundation** - Video prompts table with RLS and variant tracking
+- [x] **Phase 1: Database Foundation** - Video prompts table with RLS and variant tracking
 - [ ] **Phase 2: Core Prompt Generation** - Gemini integration for German video prompt generation with validation checkpoint
 - [ ] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
 - [ ] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
@@ -149,7 +149,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 0/1 | Not started | - |
+| 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
 | 2. Core Prompt Generation | 0/TBD | Not started | - |
 | 3. Image Preview Enhancement | 0/TBD | Not started | - |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |

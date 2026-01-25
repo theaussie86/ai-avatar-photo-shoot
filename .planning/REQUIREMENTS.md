@@ -99,9 +99,9 @@
 | CONF-03 | Phase 5 | Pending |
 | SAVE-01 | Phase 6 | Pending |
 | SAVE-02 | Phase 6 | Pending |
-| SAVE-03 | Phase 1 | Pending |
-| SAVE-04 | Phase 1 | Pending |
-| VAR-01 | Phase 1 | Pending |
+| SAVE-03 | Phase 1 | Complete |
+| SAVE-04 | Phase 1 | Complete |
+| VAR-01 | Phase 1 | Complete |
 | VAR-02 | Phase 7 | Pending |
 | VAR-03 | Phase 7 | Pending |
 | VAR-04 | Phase 7 | Pending |
