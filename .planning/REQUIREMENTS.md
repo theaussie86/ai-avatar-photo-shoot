@@ -20,10 +20,10 @@
 
 ### Prompt-Generierung
 
-- [ ] **GEN-01**: System generiert Video-Prompt basierend auf Bild via Gemini
-- [ ] **GEN-02**: Nutzer kann Freitext-Anweisungen eingeben ("Was soll passieren")
-- [ ] **GEN-03**: Generierter Prompt berücksichtigt Bildinhalt, Anweisungen und Konfiguration
-- [ ] **GEN-04**: Generierte Prompts sind auf Deutsch
+- [x] **GEN-01**: System generiert Video-Prompt basierend auf Bild via Gemini
+- [x] **GEN-02**: Nutzer kann Freitext-Anweisungen eingeben ("Was soll passieren")
+- [x] **GEN-03**: Generierter Prompt berücksichtigt Bildinhalt, Anweisungen und Konfiguration
+- [x] **GEN-04**: Generierte Prompts sind auf Englisch (geändert: Video-AI-Tools funktionieren besser mit Englisch)
 
 ### Konfiguration
 
@@ -90,10 +90,10 @@
 | PREV-01 | Phase 3 | Pending |
 | PREV-02 | Phase 3 | Pending |
 | PREV-03 | Phase 3 | Pending |
-| GEN-01 | Phase 2 | Pending |
-| GEN-02 | Phase 2 | Pending |
-| GEN-03 | Phase 2 | Pending |
-| GEN-04 | Phase 2 | Pending |
+| GEN-01 | Phase 2 | Complete |
+| GEN-02 | Phase 2 | Complete |
+| GEN-03 | Phase 2 | Complete |
+| GEN-04 | Phase 2 | Complete (adjusted to English) |
 | CONF-01 | Phase 5 | Pending |
 | CONF-02 | Phase 5 | Pending |
 | CONF-03 | Phase 5 | Pending |

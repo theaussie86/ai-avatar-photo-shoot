@@ -13,7 +13,7 @@ This roadmap delivers video prompt generation capability to the AI Avatar Photo 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Database Foundation** - Video prompts table with RLS and variant tracking
-- [ ] **Phase 2: Core Prompt Generation** - Gemini integration for German video prompt generation with validation checkpoint
+- [x] **Phase 2: Core Prompt Generation** - Gemini integration for video prompt generation (English prompts, German UI)
 - [ ] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
 - [ ] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
 - [ ] **Phase 5: Configuration Controls** - Camera style and film effect selection
@@ -38,23 +38,23 @@ Plans:
 - [ ] 01-01-PLAN.md - Create video_prompts table with RLS policies and CASCADE delete
 
 ### Phase 2: Core Prompt Generation
-**Goal**: System generates German video prompts from images using Gemini with validated language effectiveness
+**Goal**: System generates video prompts from images using Gemini (English prompts for AI tool compatibility, German UI preserved)
 **Depends on**: Phase 1
 **Requirements**: GEN-01, GEN-02, GEN-03, GEN-04
 **Success Criteria** (what must be TRUE):
-  1. Server action analyzes image and generates German video prompt via Gemini
+  1. Server action analyzes image and generates video prompt via Gemini
   2. Generated prompts include image content, user instructions, and configuration
-  3. German prompts validated in external tools (Runway/Pika) - CRITICAL CHECKPOINT
+  3. Language strategy validated (English prompts chosen for optimal video AI compatibility)
   4. Async generation creates pending record, updates to completed after Gemini responds
   5. Failed generations update status to failed with error message
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md - Video prompt schemas and German system prompt
-- [ ] 02-02-PLAN.md - Server action for video prompt generation
-- [ ] 02-03-PLAN.md - German validation checkpoint (human-verify)
+- [x] 02-01-PLAN.md - Video prompt schemas and system prompt
+- [x] 02-02-PLAN.md - Server action for video prompt generation
+- [x] 02-03-PLAN.md - Language validation checkpoint (English prompts, German UI)
 
-**Research Note**: Phase 2 includes Week 1 German validation checkpoint. Test 5-10 generated prompts in actual Runway/Pika accounts. If German prompts underperform, implement fallback strategy (English prompts with German UI).
+**Completed Note**: Language checkpoint executed fallback strategy - English prompts for optimal Runway/Pika/Kling compatibility, German UI labels preserved for user experience.
 
 ### Phase 3: Image Preview Enhancement
 **Goal**: Image preview component has improved layout and integration points for video prompt panel
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
-| 2. Core Prompt Generation | 0/3 | Not started | - |
+| 2. Core Prompt Generation | 3/3 | Complete | 2026-01-25 |
 | 3. Image Preview Enhancement | 0/TBD | Not started | - |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |
 | 5. Configuration Controls | 0/TBD | Not started | - |
