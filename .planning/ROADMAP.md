@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
 - [x] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
 - [x] **Phase 5: Configuration Controls** - Camera style and film effect selection
-- [ ] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
+- [x] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
 - [ ] **Phase 7: Variants & Navigation** - Multiple prompts per image with navigation UI
 - [ ] **Phase 8: AI Suggestions & Quality Feedback** - Contextual suggestions and prompt length guidance
 
@@ -119,7 +119,9 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md - Copy button with clipboard functionality and visual feedback
+- [x] 06-01-PLAN.md - Copy button with clipboard functionality and visual feedback
+
+**Completed Note**: useCopyToClipboard hook with Clipboard API + execCommand fallback, haptic feedback on mobile. Copy button below prompt text with checkmark feedback and "Kopiert!" toast.
 
 ### Phase 7: Variants & Navigation
 **Goal**: Users can create and navigate between multiple prompt variants per image
@@ -163,7 +165,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 3. Image Preview Enhancement | 2/2 | Complete | 2026-01-25 |
 | 4. Panel UI Foundation | 1/1 | Complete | 2026-01-25 |
 | 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
-| 6. Copy & Save System | 0/TBD | Not started | - |
+| 6. Copy & Save System | 1/1 | Complete | 2026-01-25 |
 | 7. Variants & Navigation | 0/TBD | Not started | - |
 | 8. AI Suggestions & Quality Feedback | 0/TBD | Not started | - |
 

@@ -33,10 +33,10 @@
 
 ### Kopieren & Speichern
 
-- [ ] **SAVE-01**: Nutzer kann Prompt in Zwischenablage kopieren ("Kopieren"-Button)
-- [ ] **SAVE-02**: System zeigt Feedback nach erfolgreichem Kopieren (Toast)
-- [ ] **SAVE-03**: Video-Prompts werden automatisch in Datenbank gespeichert
-- [ ] **SAVE-04**: Prompts bleiben mit zugehörigem Bild verknüpft
+- [x] **SAVE-01**: Nutzer kann Prompt in Zwischenablage kopieren ("Kopieren"-Button)
+- [x] **SAVE-02**: System zeigt Feedback nach erfolgreichem Kopieren (Toast)
+- [x] **SAVE-03**: Video-Prompts werden automatisch in Datenbank gespeichert
+- [x] **SAVE-04**: Prompts bleiben mit zugehörigem Bild verknüpft
 
 ### Varianten
 
@@ -97,8 +97,8 @@
 | CONF-01 | Phase 5 | Complete |
 | CONF-02 | Phase 5 | Complete |
 | CONF-03 | Phase 5 | Complete |
-| SAVE-01 | Phase 6 | Pending |
-| SAVE-02 | Phase 6 | Pending |
+| SAVE-01 | Phase 6 | Complete |
+| SAVE-02 | Phase 6 | Complete |
 | SAVE-03 | Phase 1 | Complete |
 | SAVE-04 | Phase 1 | Complete |
 | VAR-01 | Phase 1 | Complete |
