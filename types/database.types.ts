@@ -52,7 +52,7 @@ export type Database = {
       }
       images: {
         Row: {
-          collection_id: string | null
+          collection_id: string
           created_at: string | null
           id: string
           metadata: Json | null
@@ -60,10 +60,9 @@ export type Database = {
           storage_path: string
           type: string
           url: string
-          user_id: string
         }
         Insert: {
-          collection_id?: string | null
+          collection_id: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -71,10 +70,9 @@ export type Database = {
           storage_path: string
           type: string
           url: string
-          user_id: string
         }
         Update: {
-          collection_id?: string | null
+          collection_id?: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -82,7 +80,6 @@ export type Database = {
           storage_path?: string
           type?: string
           url?: string
-          user_id?: string
         }
         Relationships: [
           {
@@ -132,7 +129,6 @@ export type Database = {
           prompt_text: string
           status: string
           updated_at: string
-          user_id: string
           user_instruction: string | null
         }
         Insert: {
@@ -148,7 +144,6 @@ export type Database = {
           prompt_text: string
           status?: string
           updated_at?: string
-          user_id: string
           user_instruction?: string | null
         }
         Update: {
@@ -164,7 +159,6 @@ export type Database = {
           prompt_text?: string
           status?: string
           updated_at?: string
-          user_id?: string
           user_instruction?: string | null
         }
         Relationships: [

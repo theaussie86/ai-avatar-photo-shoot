@@ -185,7 +185,6 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
                 .from('images')
                 .insert({
                     collection_id: collection.id,
-                    user_id: user.id,
                     status: 'pending',
                     type: 'generated',
                     storage_path: 'pending',
@@ -278,11 +277,11 @@ export async function generateImageTask(
     try {
         const referenceImageUris = config.referenceImages || [];
 
-        // Verify DB Access immediately
-        const { data: checkImg, error: checkError } = await supabase.from('images').select('id, user_id').eq('id', imageId).single();
+        // Verify DB Access immediately (RLS ensures ownership via collection)
+        const { data: checkImg, error: checkError } = await supabase.from('images').select('id').eq('id', imageId).single();
         if (checkError) throw new Error(`Initial DB check failed: ${checkError.message}`);
-        
-        console.log(`[Task ${imageId}] Initial DB Check OK. User/Owner match: ${checkImg.user_id}`);
+
+        console.log(`[Task ${imageId}] Initial DB Check OK. RLS verified access.`);
 
         // 1. Prepare Reference Images using ALREADY UPLOADED Gemini Files
         const parts: any[] = [];
@@ -519,12 +518,11 @@ export async function deleteImageAction(imageId: string, storagePath: string) {
       throw new Error("Unauthorized");
   }
 
-  // 1. Verify Ownership & Get Metadata
+  // 1. Verify Ownership & Get Metadata (RLS enforces ownership via collection)
   const { data: image } = await supabase
       .from('images')
-      .select('id, user_id, collection_id, metadata')
+      .select('id, collection_id, metadata')
       .eq('id', imageId)
-      .eq('user_id', user.id)
       .single();
 
   if (!image) {
@@ -605,12 +603,11 @@ export async function retriggerImageAction(imageId: string) {
         throw new Error("Unauthorized");
     }
 
-    // 1. Fetch Image & Verify Ownership
+    // 1. Fetch Image (RLS enforces ownership via collection)
     const { data: image } = await supabase
         .from('images')
         .select('*')
         .eq('id', imageId)
-        .eq('user_id', user.id)
         .single();
 
     if (!image) {
@@ -656,12 +653,11 @@ export async function triggerImageGenerationAction(imageId: string) {
 
     if (!user) throw new Error("Unauthorized");
 
-    // 1. Fetch Image & Verify Ownership
+    // 1. Fetch Image (RLS enforces ownership via collection)
     const { data: image } = await supabase
         .from('images')
         .select('*')
         .eq('id', imageId)
-        .eq('user_id', user.id)
         .single();
 
     if (!image) throw new Error("Image not found");
@@ -715,7 +711,6 @@ export async function getImageAction(imageId: string) {
         .from('images')
         .select('*')
         .eq('id', imageId)
-        .eq('user_id', user.id)
         .single();
     
     if (error) throw new Error(error.message);
@@ -732,7 +727,6 @@ export async function getCollectionImagesAction(collectionId: string) {
         .from('images')
         .select('*')
         .eq('collection_id', collectionId)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
     
     if (error) throw new Error(error.message);
