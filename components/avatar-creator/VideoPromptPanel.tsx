@@ -3,11 +3,12 @@
 import { useState } from "react"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
 import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
 import { VideoPromptConfig } from "@/components/avatar-creator/VideoPromptConfig"
 import { CameraStyleType, FilmEffectType } from "@/lib/video-prompt-schemas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Video, Loader2 } from "lucide-react"
+import { AlertCircle, Video, Loader2, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 
 interface VideoPromptPanelProps {
@@ -17,6 +18,7 @@ interface VideoPromptPanelProps {
 export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const { data: prompts, isLoading, error } = useVideoPrompts(imageId)
   const generateMutation = useGenerateVideoPrompt()
+  const { copy, isCopied, isError: copyError } = useCopyToClipboard()
 
   // Get most recent prompt (first in array, sorted by created_at desc)
   const currentPrompt = prompts?.[0]
@@ -43,6 +45,23 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
         })
       }
     })
+  }
+
+  // Copy handler
+  const handleCopy = async () => {
+    if (!currentPrompt) return
+
+    const success = await copy(currentPrompt.prompt_text)
+
+    if (success) {
+      toast.success("Kopiert!", {
+        duration: 2000
+      })
+    } else {
+      toast.error("Kopieren fehlgeschlagen", {
+        description: "Text konnte nicht kopiert werden"
+      })
+    }
   }
 
   return (
@@ -138,6 +157,25 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
                 {currentPrompt.prompt_text}
               </p>
             </div>
+
+            {/* Copy button */}
+            <Button
+              onClick={handleCopy}
+              variant="outline"
+              className="w-full border-white/20 text-white hover:bg-white/5"
+            >
+              {isCopied ? (
+                <>
+                  <Check className="h-4 w-4 mr-2 text-green-500" />
+                  Kopieren
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Kopieren
+                </>
+              )}
+            </Button>
 
             {/* Metadata */}
             <div className="flex items-center gap-2 text-xs text-gray-500">
