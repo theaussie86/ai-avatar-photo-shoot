@@ -47,10 +47,12 @@ Plans:
   3. German prompts validated in external tools (Runway/Pika) - CRITICAL CHECKPOINT
   4. Async generation creates pending record, updates to completed after Gemini responds
   5. Failed generations update status to failed with error message
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD during planning
+- [ ] 02-01-PLAN.md - Video prompt schemas and German system prompt
+- [ ] 02-02-PLAN.md - Server action for video prompt generation
+- [ ] 02-03-PLAN.md - German validation checkpoint (human-verify)
 
 **Research Note**: Phase 2 includes Week 1 German validation checkpoint. Test 5-10 generated prompts in actual Runway/Pika accounts. If German prompts underperform, implement fallback strategy (English prompts with German UI).
 
@@ -150,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
-| 2. Core Prompt Generation | 0/TBD | Not started | - |
+| 2. Core Prompt Generation | 0/3 | Not started | - |
 | 3. Image Preview Enhancement | 0/TBD | Not started | - |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |
 | 5. Configuration Controls | 0/TBD | Not started | - |
