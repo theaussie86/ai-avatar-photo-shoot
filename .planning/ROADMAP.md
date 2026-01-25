@@ -82,10 +82,10 @@ Plans:
   2. Panel displays placeholder content (scrollable area ready for prompt text)
   3. User closes panel and state persists (reopening shows same content)
   4. Panel layout is responsive (Sheet on desktop >=1024px, Drawer on mobile)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: TBD during planning
+- [ ] 04-01-PLAN.md - VideoPromptPanel component with loading/empty/error states and database integration
 
 ### Phase 5: Configuration Controls
 **Goal**: Users can select camera styles and film effects that influence prompt generation
@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
 | 2. Core Prompt Generation | 3/3 | Complete | 2026-01-25 |
 | 3. Image Preview Enhancement | 2/2 | Complete | 2026-01-25 |
-| 4. Panel UI Foundation | 0/TBD | Not started | - |
+| 4. Panel UI Foundation | 0/1 | Not started | - |
 | 5. Configuration Controls | 0/TBD | Not started | - |
 | 6. Copy & Save System | 0/TBD | Not started | - |
 | 7. Variants & Navigation | 0/TBD | Not started | - |
