@@ -32,10 +32,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. RLS policies enforce user ownership (users can only access their own prompts)
   3. Deleting an image automatically deletes associated video prompts (CASCADE works)
   4. Multiple variants can be stored per image with proper ordering
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: TBD during planning
+- [ ] 01-01-PLAN.md - Create video_prompts table with RLS policies and CASCADE delete
 
 ### Phase 2: Core Prompt Generation
 **Goal**: System generates German video prompts from images using Gemini with validated language effectiveness
@@ -149,7 +149,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 0/TBD | Not started | - |
+| 1. Database Foundation | 0/1 | Not started | - |
 | 2. Core Prompt Generation | 0/TBD | Not started | - |
 | 3. Image Preview Enhancement | 0/TBD | Not started | - |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |
