@@ -8,6 +8,7 @@ import { deleteImageAction } from "@/app/actions/image-actions"
 import { useRouter } from "next/navigation"
 import { ImageCard } from "@/components/avatar-creator/ImageCard"
 import { ImagePreview } from "@/components/avatar-creator/ImagePreview"
+import { PreviewPanelLayout } from "@/components/avatar-creator/PreviewPanelLayout"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDownloadImage } from "@/hooks/use-download-image"
 
@@ -57,6 +58,9 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const [api, setApi] = React.useState<CarouselApi>()
   const [current, setCurrent] = React.useState(0)
 
+  // Panel state
+  const [isPanelOpen, setIsPanelOpen] = React.useState(false)
+
   // Zoom state
   const [zoomLevel, setZoomLevel] = React.useState(1)
   const MAX_ZOOM = 3
@@ -98,6 +102,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
     api.on("select", () => {
       setCurrent(api.selectedScrollSnap())
       setZoomLevel(1) // Reset zoom on slide change
+      setIsPanelOpen(false) // Close panel on slide change
     })
   }, [api])
 
@@ -254,35 +259,50 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                          </div>
                      </div>
 
-                     {/* Carousel Viewport */}
-                     <div className="flex-1 relative overflow-hidden bg-zinc-900">
-                        <Carousel setApi={setApi} className="w-full h-full">
-                            <CarouselContent className="h-full ml-0">
-                                {images.map((img, idx) => (
-                                    <CarouselItem key={img.id} className="h-full pl-0 relative">
-                                        {/* Image Container with Zoom */}
-                                         <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-                                             <div
-                                                className="relative w-full max-w-4xl aspect-square origin-center transition-transform duration-200"
-                                                style={{
-                                                    transform: `scale(${zoomLevel})`,
-                                                }}
-                                             >
-                                                <ImagePreview
-                                                  image={img}
-                                                  hasVideoPrompts={false}
-                                                  onVideoPromptClick={() => console.log('open panel for image:', img.id)}
-                                                  className="shadow-2xl"
-                                                />
-                                             </div>
-                                         </div>
-                                    </CarouselItem>
-                                ))}
-                            </CarouselContent>
-                            <CarouselPrevious className="left-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
-                            <CarouselNext className="right-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
-                        </Carousel>
-                     </div>
+                     {/* Carousel Viewport with Panel Layout */}
+                     <PreviewPanelLayout
+                       isPanelOpen={isPanelOpen}
+                       onPanelOpenChange={setIsPanelOpen}
+                       panelContent={
+                         <div className="flex flex-col h-full">
+                           <h3 className="text-xl font-semibold text-white mb-4">Video Prompt</h3>
+                           <p className="text-gray-400">Panel content (Phase 4)</p>
+                           <div className="mt-4 text-xs text-gray-500">
+                             Image: {currentImage?.id}
+                           </div>
+                         </div>
+                       }
+                     >
+                       <div className="flex-1 relative overflow-hidden bg-zinc-900">
+                          <Carousel setApi={setApi} className="w-full h-full">
+                              <CarouselContent className="h-full ml-0">
+                                  {images.map((img, idx) => (
+                                      <CarouselItem key={img.id} className="h-full pl-0 relative">
+                                          {/* Image Container with Zoom */}
+                                           <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+                                               <div
+                                                  className="relative w-full max-w-4xl aspect-square origin-center transition-transform duration-200"
+                                                  style={{
+                                                      transform: `scale(${zoomLevel})`,
+                                                  }}
+                                               >
+                                                  <ImagePreview
+                                                    image={img}
+                                                    hasVideoPrompts={false}
+                                                    onVideoPromptClick={() => setIsPanelOpen(true)}
+                                                    isSelected={isPanelOpen && idx === current}
+                                                    className="shadow-2xl"
+                                                  />
+                                               </div>
+                                           </div>
+                                      </CarouselItem>
+                                  ))}
+                              </CarouselContent>
+                              <CarouselPrevious className="left-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
+                              <CarouselNext className="right-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
+                          </Carousel>
+                       </div>
+                     </PreviewPanelLayout>
                  </div>
                  <DialogTitle className="sr-only">Bild Detailansicht</DialogTitle>
              </div>
