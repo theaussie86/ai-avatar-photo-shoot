@@ -9,10 +9,12 @@ import { useRouter } from "next/navigation"
 import { ImageCard } from "@/components/avatar-creator/ImageCard"
 import { ImagePreview } from "@/components/avatar-creator/ImagePreview"
 import { PreviewPanelLayout } from "@/components/avatar-creator/PreviewPanelLayout"
+import { VideoPromptPanel } from "@/components/avatar-creator/VideoPromptPanel"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDownloadImage } from "@/hooks/use-download-image"
+import { useVideoPrompts } from "@/hooks/use-video-prompts"
 
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -68,6 +70,11 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const STEP = 0.25
 
   const downloadMutation = useDownloadImage()
+
+  // Video prompts for badge indicator
+  const currentImage = images[current]
+  const { data: videoPrompts } = useVideoPrompts(currentImage?.id ?? null)
+  const hasVideoPrompts = (videoPrompts?.length ?? 0) > 0
 
   const deleteMutation = useMutation({
     mutationFn: async (image: Image) => {
@@ -128,7 +135,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
     e.stopPropagation()
     setZoomLevel(prev => Math.max(prev - STEP, MIN_ZOOM))
   }
-  
+
   const resetZoom = (e: React.MouseEvent) => {
     e.stopPropagation()
     setZoomLevel(1)
@@ -151,8 +158,6 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
       </div>
     )
   }
-  
-  const currentImage = images[current]
 
   return (
     <>
@@ -166,7 +171,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/10 hover:text-white">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={(e) => {
                   e.preventDefault()
                   confirmDelete()
@@ -182,7 +187,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {images.map((img, idx) => (
-              <ImageCard 
+              <ImageCard
                 key={img.id}
                 initialImage={img}
                 onClick={() => openGallery(idx)}
@@ -193,14 +198,14 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="h-screen p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center pointer-events-none">
-             {/* 
-                We use pointer-events-none on the container and pointer-events-auto on the content 
-                to allow clicks to pass through to the backdrop for closing 
+             {/*
+                We use pointer-events-none on the container and pointer-events-auto on the content
+                to allow clicks to pass through to the backdrop for closing
              */}
              <div className="relative w-full h-full flex flex-col items-center justify-center p-4 md:p-8 pointer-events-auto">
                  {/* Card Container for Image */}
                  <div className="relative w-full h-full bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col">
-                     
+
                      {/* Toolbar */}
                      <div className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 z-20 shrink-0">
                          <div className="flex items-center gap-2">
@@ -218,9 +223,9 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={zoomIn} disabled={zoomLevel >= MAX_ZOOM}>
                                 <ZoomIn className="w-4 h-4" />
                             </Button>
-                            
+
                              <div className="h-4 w-px bg-white/10 mx-2"></div>
-                             
+
                              {currentImage && (
                                 <>
                                  <Button
@@ -235,7 +240,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                                   >
                                       <Trash2 className="h-4 w-4" />
                                   </Button>
-                                 
+
                                  <Button
                                     variant="secondary"
                                     size="icon"
@@ -264,13 +269,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                        isPanelOpen={isPanelOpen}
                        onPanelOpenChange={setIsPanelOpen}
                        panelContent={
-                         <div className="flex flex-col h-full">
-                           <h3 className="text-xl font-semibold text-white mb-4">Video Prompt</h3>
-                           <p className="text-gray-400">Panel content (Phase 4)</p>
-                           <div className="mt-4 text-xs text-gray-500">
-                             Image: {currentImage?.id}
-                           </div>
-                         </div>
+                         <VideoPromptPanel imageId={currentImage?.id ?? null} />
                        }
                      >
                        <div className="flex-1 relative overflow-hidden bg-zinc-900">
@@ -288,7 +287,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                                                >
                                                   <ImagePreview
                                                     image={img}
-                                                    hasVideoPrompts={false}
+                                                    hasVideoPrompts={hasVideoPrompts}
                                                     onVideoPromptClick={() => setIsPanelOpen(true)}
                                                     isSelected={isPanelOpen && idx === current}
                                                     className="shadow-2xl"
