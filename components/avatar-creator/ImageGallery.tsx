@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { deleteImageAction } from "@/app/actions/image-actions"
 import { useRouter } from "next/navigation"
 import { ImageCard } from "@/components/avatar-creator/ImageCard"
+import { ImagePreview } from "@/components/avatar-creator/ImagePreview"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDownloadImage } from "@/hooks/use-download-image"
 
@@ -254,31 +255,24 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                      </div>
 
                      {/* Carousel Viewport */}
-                     <div className="flex-1 relative overflow-hidden bg-[url('/grid-pattern.svg')] bg-repeat bg-center">
+                     <div className="flex-1 relative overflow-hidden bg-zinc-900">
                         <Carousel setApi={setApi} className="w-full h-full">
                             <CarouselContent className="h-full ml-0">
                                 {images.map((img, idx) => (
                                     <CarouselItem key={img.id} className="h-full pl-0 relative">
                                         {/* Image Container with Zoom */}
-                                         <div className="w-full h-full flex items-center justify-center overflow-auto">
-                                             <div 
-                                                className="relative flex items-center justify-center origin-center transition-transform duration-200"
+                                         <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+                                             <div
+                                                className="relative w-full max-w-4xl aspect-square origin-center transition-transform duration-200"
                                                 style={{
                                                     transform: `scale(${zoomLevel})`,
-                                                    // Ensure container size adapts to content when zoomed to allow scrolling if needed
-                                                    // But in a carousel item, overflow behavior is tricky.
-                                                    // For now, let's keep simple scaling.
                                                 }}
                                              >
-                                                <img 
-                                                    src={img.url} 
-                                                    alt={`Detail ${idx + 1}`} 
-                                                    className="w-auto h-auto object-contain shadow-lg rounded-sm bg-black transition-all duration-200"
-                                                    style={{
-                                                        // Prevent image from overflowing viewport excessively unless zoom requires it
-                                                        maxWidth: zoomLevel <= 1 ? '100%' : 'none',
-                                                        maxHeight: zoomLevel <= 1 ? '100%' : 'none',
-                                                    }}
+                                                <ImagePreview
+                                                  image={img}
+                                                  hasVideoPrompts={false}
+                                                  onVideoPromptClick={() => console.log('open panel for image:', img.id)}
+                                                  className="shadow-2xl"
                                                 />
                                              </div>
                                          </div>
