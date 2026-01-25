@@ -116,10 +116,10 @@ Plans:
   3. Copy action works on both desktop and mobile
   4. Generated prompts save to database automatically (linked to image)
   5. Reopening panel for same image loads previously generated prompt
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: TBD during planning
+- [ ] 06-01-PLAN.md - Copy button with clipboard functionality and visual feedback
 
 ### Phase 7: Variants & Navigation
 **Goal**: Users can create and navigate between multiple prompt variants per image
