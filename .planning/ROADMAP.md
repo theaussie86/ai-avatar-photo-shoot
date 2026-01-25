@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md - Create video_prompts table with RLS policies and CASCADE delete
+- [x] 01-01-PLAN.md - Create video_prompts table with RLS policies and CASCADE delete
 
 ### Phase 2: Core Prompt Generation
 **Goal**: System generates video prompts from images using Gemini (English prompts for AI tool compatibility, German UI preserved)
@@ -65,10 +65,11 @@ Plans:
   2. Layout adapts responsively when panel opens (desktop) or drawer appears (mobile)
   3. Video prompt trigger button appears in preview UI (non-functional styling)
   4. Preview component structure supports panel integration without breaking existing functionality
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD during planning
+- [ ] 03-01-PLAN.md - Enhanced preview component with letterbox layout and trigger button
+- [ ] 03-02-PLAN.md - Responsive layout container with sheet/drawer panel integration
 
 ### Phase 4: Panel UI Foundation
 **Goal**: Users can open and close video prompt panel without data loss
@@ -78,7 +79,7 @@ Plans:
   1. User clicks video icon button and panel opens as side panel (desktop) or drawer (mobile)
   2. Panel displays placeholder content (scrollable area ready for prompt text)
   3. User closes panel and state persists (reopening shows same content)
-  4. Panel layout is responsive (Sheet on desktop ≥1024px, Drawer on mobile)
+  4. Panel layout is responsive (Sheet on desktop >=1024px, Drawer on mobile)
 **Plans**: TBD
 
 Plans:
@@ -90,7 +91,7 @@ Plans:
 **Requirements**: CONF-01, CONF-02, CONF-03
 **Success Criteria** (what must be TRUE):
   1. Panel displays camera style options (Cinematic, Slow Motion, Zoom-In, Orbit, Dolly, Statisch) as single-select controls
-  2. Panel displays film effect options (Dramatisch, Weich, Golden Hour, Noir, Verträumt) as single-select controls
+  2. Panel displays film effect options (Dramatisch, Weich, Golden Hour, Noir, Vertraumt) as single-select controls
   3. Selected options visually indicate active state
   4. Selected options are passed to Gemini during prompt generation
   5. Generated prompts reflect chosen camera style and film effect
@@ -135,7 +136,7 @@ Plans:
 **Requirements**: SUGG-01, SUGG-02, SUGG-03, SUGG-04, FEED-01
 **Success Criteria** (what must be TRUE):
   1. Panel displays 3-5 AI-generated suggestions based on image analysis (e.g., "Make character smile")
-  2. Panel displays fixed action suggestions (lächeln, winken, nicken, drehen)
+  2. Panel displays fixed action suggestions (lacheln, winken, nicken, drehen)
   3. User can click suggestion to populate instruction field
   4. Selected suggestions show visual active state
   5. Panel displays word count and length indicator (green: 50-150 words, red: >200 words)
@@ -147,13 +148,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
 | 2. Core Prompt Generation | 3/3 | Complete | 2026-01-25 |
-| 3. Image Preview Enhancement | 0/TBD | Not started | - |
+| 3. Image Preview Enhancement | 0/2 | Not started | - |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |
 | 5. Configuration Controls | 0/TBD | Not started | - |
 | 6. Copy & Save System | 0/TBD | Not started | - |
