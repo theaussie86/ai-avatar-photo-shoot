@@ -99,10 +99,10 @@ Plans:
   3. Selected options visually indicate active state
   4. Selected options are passed to Gemini during prompt generation
   5. Generated prompts reflect chosen camera style and film effect
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: TBD during planning
+- [ ] 05-01-PLAN.md - Configuration chips and generation integration
 
 ### Phase 6: Copy & Save System
 **Goal**: Users can copy prompts to clipboard and prompts persist in database
