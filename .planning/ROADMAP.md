@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Database Foundation** - Video prompts table with RLS and variant tracking
 - [x] **Phase 2: Core Prompt Generation** - Gemini integration for video prompt generation (English prompts, German UI)
-- [ ] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
+- [x] **Phase 3: Image Preview Enhancement** - Improved layout and panel integration points
 - [ ] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
 - [ ] **Phase 5: Configuration Controls** - Camera style and film effect selection
 - [ ] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
@@ -68,8 +68,10 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md - Enhanced preview component with letterbox layout and trigger button
-- [ ] 03-02-PLAN.md - Responsive layout container with sheet/drawer panel integration
+- [x] 03-01-PLAN.md - Enhanced preview component with letterbox layout and trigger button
+- [x] 03-02-PLAN.md - Responsive layout container with sheet/drawer panel integration
+
+**Completed Note**: Letterbox layout with object-contain prevents cropping. Responsive panel layout: side sheet (desktop ≥1024px) and bottom drawer (mobile). VideoPromptButton triggers panel toggle.
 
 ### Phase 4: Panel UI Foundation
 **Goal**: Users can open and close video prompt panel without data loss
@@ -154,7 +156,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-25 |
 | 2. Core Prompt Generation | 3/3 | Complete | 2026-01-25 |
-| 3. Image Preview Enhancement | 0/2 | Not started | - |
+| 3. Image Preview Enhancement | 2/2 | Complete | 2026-01-25 |
 | 4. Panel UI Foundation | 0/TBD | Not started | - |
 | 5. Configuration Controls | 0/TBD | Not started | - |
 | 6. Copy & Save System | 0/TBD | Not started | - |

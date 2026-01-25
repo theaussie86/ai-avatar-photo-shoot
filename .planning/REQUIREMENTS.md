@@ -14,9 +14,9 @@
 
 ### Image Preview Verbesserungen
 
-- [ ] **PREV-01**: Bildvorschau-Komponente zeigt Bilder besser an (Layout/Sizing)
-- [ ] **PREV-02**: Bildvorschau hat saubere Integration für Video-Prompt-Panel
-- [ ] **PREV-03**: Responsive Layout passt sich an Panel-Zustand an (offen/geschlossen)
+- [x] **PREV-01**: Bildvorschau-Komponente zeigt Bilder besser an (Layout/Sizing)
+- [x] **PREV-02**: Bildvorschau hat saubere Integration für Video-Prompt-Panel
+- [x] **PREV-03**: Responsive Layout passt sich an Panel-Zustand an (offen/geschlossen)
 
 ### Prompt-Generierung
 
@@ -87,9 +87,9 @@
 | PANEL-02 | Phase 4 | Pending |
 | PANEL-03 | Phase 4 | Pending |
 | PANEL-04 | Phase 4 | Pending |
-| PREV-01 | Phase 3 | Pending |
-| PREV-02 | Phase 3 | Pending |
-| PREV-03 | Phase 3 | Pending |
+| PREV-01 | Phase 3 | Complete |
+| PREV-02 | Phase 3 | Complete |
+| PREV-03 | Phase 3 | Complete |
 | GEN-01 | Phase 2 | Complete |
 | GEN-02 | Phase 2 | Complete |
 | GEN-03 | Phase 2 | Complete |
