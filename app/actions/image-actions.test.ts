@@ -188,7 +188,7 @@ describe('Image Actions', () => {
        const mockConfig = {
           aspectRatio: '1:1',
           referenceImages: [],
-          model: 'models/gemini-2.0-flash'
+          model: 'models/gemini-2.5-flash'
        };
 
        it('should update status to failed if Gemini API fails', async () => {
@@ -343,10 +343,10 @@ describe('Image Actions', () => {
           expect(mockSupabase.storage.remove).toHaveBeenCalledWith([storagePath]); // Only main image
       });
 
-      it('should delete associated reference images if present in metadata', async () => {
+      it('should NOT delete Gemini files (cleanup skipped per user request)', async () => {
         const imageId = 'img-with-refs';
         const storagePath = 'col/main_img.png';
-        
+
         // We now use Gemini URIs in metadata
         const refUrl = `https://generativelanguage.googleapis.com/v1beta/files/123rec`;
 
@@ -356,16 +356,16 @@ describe('Image Actions', () => {
                 eq: vi.fn().mockReturnThis(),
                 neq: vi.fn().mockReturnThis(),
                 in: vi.fn().mockReturnThis(),
-                single: vi.fn().mockResolvedValue({ 
-                    data: { 
-                        id: imageId, 
+                single: vi.fn().mockResolvedValue({
+                    data: {
+                        id: imageId,
                         user_id: mockUser.id,
                         metadata: {
                             config: {
                                 referenceImages: [refUrl]
                             }
                         }
-                    } 
+                    }
                 }),
                 delete: vi.fn().mockReturnThis()
             } as any;
@@ -373,25 +373,18 @@ describe('Image Actions', () => {
             if (table === 'profiles') {
                 chain.single.mockResolvedValue({ data: { gemini_api_key: 'test-api-key' } });
             }
-            if (table === 'images' && chain.neq) {
-                // Mock the check for "other images needing this ref"
-                // The chain is .select().in().neq()
-                chain.neq.mockResolvedValue({ data: [], error: null }); // None need it
-            }
             return chain;
         });
-
-        mockGenAIClient.files.delete.mockResolvedValue({}); // Return promise
 
         const removeMock = vi.fn().mockResolvedValue({ error: null });
         mockSupabase.storage.remove = removeMock;
 
         await deleteImageAction(imageId, storagePath);
 
-        // 1. Reference cleanup (Gemini)
-        expect(mockGenAIClient.files.delete).toHaveBeenCalledWith({ name: 'files/123rec' });
-        
-        // 2. Main image cleanup (Supabase)
+        // Gemini files cleanup is skipped per user request
+        expect(mockGenAIClient.files.delete).not.toHaveBeenCalled();
+
+        // Main image cleanup (Supabase) should still happen
         expect(removeMock).toHaveBeenCalledWith([storagePath]);
       });
   });

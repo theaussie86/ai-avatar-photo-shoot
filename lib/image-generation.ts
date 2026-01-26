@@ -80,7 +80,7 @@ export async function generateImage(
   prompt: string, 
   referenceImageParts: any[], 
   aspectRatio: string = "1:1",
-  modelName: string = "gemini-2.0-flash" 
+  modelName: string = "gemini-2.5-flash" 
 ): Promise<string> {
   // Construct contents
   const parts: any[] = [{ text: prompt }];

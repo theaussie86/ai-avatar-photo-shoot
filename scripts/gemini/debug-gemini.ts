@@ -13,7 +13,7 @@ async function main() {
     const client = new GoogleGenAI({ apiKey });
 
     // Test Model Name
-    const modelName = "gemini-2.0-flash-exp"; 
+    const modelName = "gemini-2.5-flash"; 
     console.log(`📡 Testing model connection: ${modelName}`);
 
     // CONFIG
@@ -177,7 +177,7 @@ async function main() {
     console.log("\n--- TEST 5: Vision Capability (Describe Image) ---");
     try {
         const visionResult = await client.models.generateContent({
-            model: "gemini-2.0-flash-exp", 
+            model: "gemini-2.5-flash", 
             contents: [{ 
                 role: 'user', 
                 parts: [
