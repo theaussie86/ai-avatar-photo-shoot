@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
 import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
@@ -8,7 +8,7 @@ import { VideoPromptConfig } from "@/components/avatar-creator/VideoPromptConfig
 import { CameraStyleType, FilmEffectType } from "@/lib/video-prompt-schemas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Video, Loader2, Copy, Check } from "lucide-react"
+import { AlertCircle, Loader2, Copy, Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 
 interface VideoPromptPanelProps {
@@ -20,12 +20,28 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const generateMutation = useGenerateVideoPrompt()
   const { copy, isCopied, isError: copyError } = useCopyToClipboard()
 
-  // Get most recent prompt (first in array, sorted by created_at desc)
-  const currentPrompt = prompts?.[0]
+  // Variant navigation state (0 = most recent)
+  const [variantIndex, setVariantIndex] = useState(0)
+
+  // Get current prompt based on variant index
+  const currentPrompt = prompts?.[variantIndex]
 
   // State for configuration selections (defaults from CONTEXT.md)
   const [selectedCameraStyle, setSelectedCameraStyle] = useState<CameraStyleType | null>("cinematic")
   const [selectedFilmEffect, setSelectedFilmEffect] = useState<FilmEffectType | null>("soft")
+
+  // Reset variantIndex when imageId changes
+  useEffect(() => {
+    setVariantIndex(0)
+  }, [imageId])
+
+  // Sync config from current prompt when navigating variants
+  useEffect(() => {
+    if (currentPrompt) {
+      setSelectedCameraStyle(currentPrompt.camera_style as CameraStyleType ?? "cinematic")
+      setSelectedFilmEffect(currentPrompt.film_effects?.[0] as FilmEffectType ?? "soft")
+    }
+  }, [currentPrompt])
 
   // Generate handler
   const handleGenerate = () => {
@@ -68,7 +84,14 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
     <div className="flex flex-col h-full">
       {/* Header with border separator */}
       <div className="px-4 py-3 border-b border-white/10 shrink-0">
-        <h3 className="text-lg font-semibold text-white">Video Prompt</h3>
+        <div className="flex items-center">
+          <h3 className="text-lg font-semibold text-white">Video Prompt</h3>
+          {prompts && prompts.length > 0 && (
+            <span className="text-sm text-gray-400 ml-2">
+              {variantIndex + 1} von {prompts.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Scrollable content area */}
@@ -126,56 +149,76 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
 
         {/* Prompt display - has content */}
         {!isLoading && !error && currentPrompt && (
-          <div className="space-y-6">
-            {/* Config controls for regeneration */}
-            <VideoPromptConfig
-              selectedCameraStyle={selectedCameraStyle}
-              selectedFilmEffect={selectedFilmEffect}
-              onCameraStyleChange={setSelectedCameraStyle}
-              onFilmEffectChange={setSelectedFilmEffect}
-              disabled={generateMutation.isPending}
-            />
-            <Button
-              onClick={handleGenerate}
-              disabled={generateMutation.isPending}
-              variant="outline"
-              className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
-            >
-              {generateMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Generiere neu...
-                </>
-              ) : (
-                "Neuen Prompt erstellen"
-              )}
-            </Button>
+          <div className="space-y-4">
+            {/* Variant navigation - only show when multiple variants */}
+            {prompts && prompts.length > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setVariantIndex(prev => prev + 1)}
+                  disabled={variantIndex === prompts.length - 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-400">
+                  {variantIndex + 1} von {prompts.length}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setVariantIndex(prev => prev - 1)}
+                  disabled={variantIndex === 0}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
-            {/* Existing prompt display */}
+            {/* Prompt text display */}
             <div className="bg-white/5 rounded-lg p-4 border border-white/10">
               <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
                 {currentPrompt.prompt_text}
               </p>
             </div>
 
-            {/* Copy button */}
-            <Button
-              onClick={handleCopy}
-              variant="outline"
-              className="w-full border-white/20 text-white hover:bg-white/5"
-            >
-              {isCopied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2 text-green-500" />
-                  Kopieren
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Kopieren
-                </>
-              )}
-            </Button>
+            {/* Action buttons row */}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCopy}
+                variant="outline"
+                className="flex-1 border-white/20 text-white hover:bg-white/5"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2 text-green-500" />
+                    Kopieren
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Kopieren
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={generateMutation.isPending}
+                variant="outline"
+                className="flex-1 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+              >
+                {generateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ...
+                  </>
+                ) : (
+                  "+ Neu"
+                )}
+              </Button>
+            </div>
 
             {/* Metadata */}
             <div className="flex items-center gap-2 text-xs text-gray-500">
