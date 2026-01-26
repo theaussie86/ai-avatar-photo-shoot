@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
 import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
+import { useAISuggestions } from "@/hooks/use-ai-suggestions"
 import { VideoPromptConfig } from "@/components/avatar-creator/VideoPromptConfig"
 import { ActionSuggestions } from "@/components/avatar-creator/ActionSuggestions"
 import { PromptLengthFeedback } from "@/components/avatar-creator/PromptLengthFeedback"
@@ -21,6 +22,7 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const { data: prompts, isLoading, error } = useVideoPrompts(imageId)
   const generateMutation = useGenerateVideoPrompt()
   const { copy, isCopied } = useCopyToClipboard()
+  const { data: aiSuggestions, isLoading: isLoadingAI } = useAISuggestions(imageId)
 
   // Variant navigation state - stores {imageId, index} to auto-reset on imageId change
   const [variantState, setVariantState] = useState<{imageId: string | null, index: number}>({
@@ -167,6 +169,8 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
             <ActionSuggestions
               selectedSuggestions={selectedSuggestions}
               onToggle={handleSuggestionToggle}
+              aiSuggestions={aiSuggestions}
+              isLoadingAI={isLoadingAI}
               disabled={generateMutation.isPending}
             />
 
