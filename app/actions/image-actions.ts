@@ -453,9 +453,7 @@ export async function generateImageTask(
                     for (const file of uploadedFiles) {
                         if (!allNeededUris.has(file.uri)) {
                             console.log(`[Task ${imageId}] URI ${file.uri} no longer needed (no pending or failed tasks). Cleaning up...`);
-                            await client.files.delete({ name: file.name }).catch(cleanupError => {
-                                console.error(`[Task ${imageId}] Failed to delete Gemini file ${file.name}:`, cleanupError);
-                            });
+                            await client.files.delete({ name: file.name }).catch(() => {});
                         } else {
                             console.log(`[Task ${imageId}] URI ${file.uri} still needed by other tasks. Skipping cleanup.`);
                         }
