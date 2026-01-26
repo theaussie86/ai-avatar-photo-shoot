@@ -5,6 +5,8 @@ import { useVideoPrompts } from "@/hooks/use-video-prompts"
 import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
 import { VideoPromptConfig } from "@/components/avatar-creator/VideoPromptConfig"
+import { ActionSuggestions } from "@/components/avatar-creator/ActionSuggestions"
+import { PromptLengthFeedback } from "@/components/avatar-creator/PromptLengthFeedback"
 import { CameraStyleType, FilmEffectType } from "@/lib/video-prompt-schemas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -44,19 +46,53 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const [selectedCameraStyle, setSelectedCameraStyle] = useState<CameraStyleType | null>("cinematic")
   const [selectedFilmEffect, setSelectedFilmEffect] = useState<FilmEffectType | null>("soft")
 
+  // State for action suggestions and custom instruction
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
+  const [customInstruction, setCustomInstruction] = useState("")
+
   // In content state, show the current variant's config (read-only display via metadata)
   // Config state is only used for new prompt creation (empty state and +Neu button)
+
+  // Suggestion toggle handler
+  const handleSuggestionToggle = (suggestion: string) => {
+    setSelectedSuggestions(prev =>
+      prev.includes(suggestion)
+        ? prev.filter(s => s !== suggestion)
+        : [...prev, suggestion]
+    )
+  }
+
+  // Derive userInstruction from selected suggestions and custom text
+  const deriveUserInstruction = () => {
+    const parts: string[] = []
+
+    if (selectedSuggestions.length > 0) {
+      parts.push(selectedSuggestions.join(", "))
+    }
+
+    if (customInstruction.trim()) {
+      parts.push(customInstruction.trim())
+    }
+
+    return parts.join(". ")
+  }
 
   // Generate handler
   const handleGenerate = () => {
     if (!imageId) return
 
+    const userInstruction = deriveUserInstruction()
+
     generateMutation.mutate({
       imageId,
       cameraStyle: selectedCameraStyle || "static",
       filmEffects: selectedFilmEffect ? [selectedFilmEffect] : [],
+      userInstruction: userInstruction || undefined,
     }, {
       onSuccess: () => {
+        // Clear suggestions and custom instruction on success
+        setSelectedSuggestions([])
+        setCustomInstruction("")
         toast.success("Video-Prompt erstellt!")
       },
       onError: (error) => {
@@ -127,6 +163,30 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
         {/* Empty state - no prompts exist */}
         {!isLoading && !error && !currentPrompt && (
           <div className="space-y-6">
+            {/* Action Suggestions */}
+            <ActionSuggestions
+              selectedSuggestions={selectedSuggestions}
+              onToggle={handleSuggestionToggle}
+              disabled={generateMutation.isPending}
+            />
+
+            {/* Custom Instruction Textarea */}
+            <div>
+              <label htmlFor="custom-instruction" className="text-xs text-gray-500 mb-2 block">
+                Eigene Anweisungen (optional)
+              </label>
+              <textarea
+                id="custom-instruction"
+                value={customInstruction}
+                onChange={(e) => setCustomInstruction(e.target.value)}
+                disabled={generateMutation.isPending}
+                placeholder="z.B. langsam nach rechts schauen..."
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Configuration */}
             <VideoPromptConfig
               selectedCameraStyle={selectedCameraStyle}
               selectedFilmEffect={selectedFilmEffect}
@@ -134,6 +194,8 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
               onFilmEffectChange={setSelectedFilmEffect}
               disabled={generateMutation.isPending}
             />
+
+            {/* Generate Button */}
             <Button
               onClick={handleGenerate}
               disabled={generateMutation.isPending}
@@ -187,6 +249,9 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
                 {currentPrompt.prompt_text}
               </p>
             </div>
+
+            {/* Prompt Length Feedback */}
+            <PromptLengthFeedback text={currentPrompt.prompt_text} />
 
             {/* Action buttons row */}
             <div className="flex gap-2">
