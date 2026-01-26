@@ -71,7 +71,7 @@ Plans:
 - [x] 03-01-PLAN.md - Enhanced preview component with letterbox layout and trigger button
 - [x] 03-02-PLAN.md - Responsive layout container with sheet/drawer panel integration
 
-**Completed Note**: Letterbox layout with object-contain prevents cropping. Responsive panel layout: side sheet (desktop ≥1024px) and bottom drawer (mobile). VideoPromptButton triggers panel toggle.
+**Completed Note**: Letterbox layout with object-contain prevents cropping. Responsive panel layout: side sheet (desktop >=1024px) and bottom drawer (mobile). VideoPromptButton triggers panel toggle.
 
 ### Phase 4: Panel UI Foundation
 **Goal**: Users can open and close video prompt panel without data loss
@@ -133,10 +133,10 @@ Plans:
   3. User can click "+Neu" button to create new variant
   4. Each variant maintains its own configuration (camera style, film effect)
   5. Variant order persists correctly across sessions
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 07-01: TBD during planning
+- [ ] 07-01-PLAN.md - Variant navigation UI with counter, arrows, and new variant button
 
 ### Phase 8: AI Suggestions & Quality Feedback
 **Goal**: Users receive AI-powered action suggestions and prompt quality guidance
@@ -166,9 +166,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 4. Panel UI Foundation | 1/1 | Complete | 2026-01-25 |
 | 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
 | 6. Copy & Save System | 1/1 | Complete | 2026-01-25 |
-| 7. Variants & Navigation | 0/TBD | Not started | - |
+| 7. Variants & Navigation | 0/1 | Not started | - |
 | 8. AI Suggestions & Quality Feedback | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-01-25*
-*Last updated: 2026-01-25*
+*Last updated: 2026-01-26*
