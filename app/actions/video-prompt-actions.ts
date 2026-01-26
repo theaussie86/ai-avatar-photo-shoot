@@ -291,3 +291,231 @@ export async function getVideoPromptsForImageAction(imageId: string) {
 
   return prompts || [];
 }
+
+export async function getAISuggestionsForImageAction(imageId: string): Promise<string[]> {
+  try {
+    // 1. Authenticate user
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect("/login");
+    }
+
+    // 2. Get API key from profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('gemini_api_key')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.gemini_api_key) {
+      console.error("[AISuggestions] No Gemini API Key found");
+      return [];
+    }
+
+    // Decrypt the API Key
+    const apiKey = decrypt(profile.gemini_api_key);
+    if (!apiKey) {
+      console.error("[AISuggestions] Failed to decrypt API key");
+      return [];
+    }
+
+    // 3. Verify image ownership by fetching image and checking user owns the collection
+    const { data: image, error: imageError } = await supabase
+      .from('images')
+      .select('id, url, storage_path, collection_id, collections(user_id)')
+      .eq('id', imageId)
+      .single();
+
+    if (imageError || !image) {
+      console.error("[AISuggestions] Image not found or access denied");
+      return [];
+    }
+
+    // Check collection ownership via RLS (collections relationship)
+    const collectionUserID = (image.collections as any)?.user_id;
+    if (collectionUserID !== user.id) {
+      console.error("[AISuggestions] Access denied: User does not own this image");
+      return [];
+    }
+
+    // 4. Fetch image from Supabase storage
+    let imageBlob: Blob;
+
+    if (image.url && image.url.startsWith('http')) {
+      // Image is already publicly accessible, fetch via URL
+      const response = await fetch(image.url);
+      if (!response.ok) {
+        console.error("[AISuggestions] Failed to fetch image from URL");
+        return [];
+      }
+      imageBlob = await response.blob();
+    } else if (image.storage_path) {
+      // Download from Supabase storage
+      const { data: fileData, error: downloadError } = await supabase
+        .storage
+        .from('generated_images')
+        .download(image.storage_path);
+
+      if (downloadError || !fileData) {
+        console.error("[AISuggestions] Failed to download image:", downloadError);
+        return [];
+      }
+
+      imageBlob = fileData;
+    } else {
+      console.error("[AISuggestions] Image has no accessible URL or storage path");
+      return [];
+    }
+
+    // 5. Upload to Gemini Files API
+    console.log(`[AISuggestions ${imageId}] Uploading image to Gemini...`);
+
+    const client = new GoogleGenAI({ apiKey });
+    const mimeType = imageBlob.type || 'image/jpeg';
+
+    const uploadResult: any = await client.files.upload({
+      file: imageBlob,
+      config: { mimeType }
+    });
+
+    const geminiFile = uploadResult.file || uploadResult;
+    if (!geminiFile.uri) {
+      console.error("[AISuggestions] Gemini upload failed: No URI returned");
+      return [];
+    }
+
+    console.log(`[AISuggestions ${imageId}] Uploaded to Gemini: ${geminiFile.uri}`);
+
+    // Wait for file to be processed
+    let status = "PROCESSING";
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (status === "PROCESSING" && attempts < maxAttempts) {
+      try {
+        const resourceName = geminiFile.uri.includes("/files/")
+          ? "files/" + geminiFile.uri.split("/files/")[1]
+          : geminiFile.name;
+
+        const fileStatus = await client.files.get({ name: resourceName });
+        status = fileStatus.state || "FAILED";
+
+        if (status === "PROCESSING") {
+          console.log(`[AISuggestions ${imageId}] File still processing, waiting 2s (Attempt ${attempts + 1}/${maxAttempts})...`);
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      } catch (statusError) {
+        console.error(`[AISuggestions ${imageId}] Failed to check file status:`, statusError);
+        break;
+      }
+      attempts++;
+    }
+
+    if (status !== "ACTIVE") {
+      console.warn(`[AISuggestions ${imageId}] File is in state ${status} after ${attempts} attempts. Proceeding anyway...`);
+    }
+
+    // 6. Call Gemini with system prompt requesting German action suggestions
+    console.log(`[AISuggestions ${imageId}] Generating AI suggestions...`);
+
+    const systemPrompt = `Du bist ein Experte für Video-Animationen. Analysiere dieses Bild einer Person und schlage 3-5 kurze Aktionen vor, die diese Person in einem animierten Video machen könnte.
+
+Regeln:
+- Antworte NUR mit einer JSON-Liste von Strings
+- Jeder Vorschlag maximal 3-4 Wörter auf Deutsch
+- Berücksichtige die Pose, Blickrichtung und den Kontext im Bild
+- Vorschläge sollten natürlich und umsetzbar sein
+
+Beispiel-Format: ["nach links schauen", "Augen schließen", "Kopf neigen"]`;
+
+    const parts: any[] = [
+      {
+        fileData: {
+          mimeType: mimeType,
+          fileUri: geminiFile.uri
+        }
+      },
+      { text: "Analysiere dieses Bild und gib mir 3-5 Aktions-Vorschläge." }
+    ];
+
+    const result: any = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      config: {
+        systemInstruction: systemPrompt
+      },
+      contents: [{
+        role: 'user',
+        parts: parts
+      }]
+    });
+
+    const candidate = result.candidates?.[0] || result.response?.candidates?.[0];
+    const textPart = candidate?.content?.parts?.find((p: any) => p.text);
+
+    if (!textPart || !textPart.text) {
+      console.error(`[AISuggestions ${imageId}] No text generated. FinishReason: ${candidate?.finishReason}`);
+      await cleanupGeminiFile(client, geminiFile);
+      return [];
+    }
+
+    const generatedText = textPart.text.trim();
+    console.log(`[AISuggestions ${imageId}] Generated response: ${generatedText}`);
+
+    // 7. Parse JSON response
+    let suggestions: string[];
+    try {
+      // Try to extract JSON array from response (may have markdown code blocks)
+      const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.error("[AISuggestions] No JSON array found in response");
+        await cleanupGeminiFile(client, geminiFile);
+        return [];
+      }
+
+      suggestions = JSON.parse(jsonMatch[0]);
+
+      // Validate it's an array of strings
+      if (!Array.isArray(suggestions) || !suggestions.every(s => typeof s === 'string')) {
+        console.error("[AISuggestions] Response is not a valid string array");
+        await cleanupGeminiFile(client, geminiFile);
+        return [];
+      }
+
+      // Limit to 3-5 suggestions
+      suggestions = suggestions.slice(0, 5);
+
+    } catch (parseError) {
+      console.error("[AISuggestions] Failed to parse JSON:", parseError);
+      await cleanupGeminiFile(client, geminiFile);
+      return [];
+    }
+
+    // 8. Cleanup Gemini file
+    await cleanupGeminiFile(client, geminiFile);
+
+    console.log(`[AISuggestions ${imageId}] Returning ${suggestions.length} suggestions:`, suggestions);
+    return suggestions;
+
+  } catch (error: any) {
+    // Log errors but don't throw - suggestions are non-critical
+    console.error("[AISuggestions] Error generating suggestions:", error);
+    return [];
+  }
+}
+
+// Helper function to cleanup Gemini file
+async function cleanupGeminiFile(client: GoogleGenAI, geminiFile: any) {
+  try {
+    const resourceName = geminiFile.uri.includes("/files/")
+      ? "files/" + geminiFile.uri.split("/files/")[1]
+      : geminiFile.name;
+
+    await client.files.delete({ name: resourceName });
+    console.log(`[AISuggestions] Cleaned up Gemini file`);
+  } catch (cleanupError) {
+    console.error(`[AISuggestions] Failed to cleanup Gemini file:`, cleanupError);
+    // Non-fatal, continue
+  }
+}
