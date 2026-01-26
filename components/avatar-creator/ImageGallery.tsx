@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Download, Trash2, Maximize2, X, Search, ZoomIn, ZoomOut, RefreshCw } from "lucide-react"
-import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Download, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { deleteImageAction } from "@/app/actions/image-actions"
 import { useRouter } from "next/navigation"
@@ -10,6 +10,7 @@ import { ImageCard } from "@/components/avatar-creator/ImageCard"
 import { ImagePreview } from "@/components/avatar-creator/ImagePreview"
 import { PreviewPanelLayout } from "@/components/avatar-creator/PreviewPanelLayout"
 import { VideoPromptPanel } from "@/components/avatar-creator/VideoPromptPanel"
+import { ThumbnailStrip } from "@/components/avatar-creator/ThumbnailStrip"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDownloadImage } from "@/hooks/use-download-image"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
@@ -23,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 
@@ -42,37 +42,20 @@ interface ImageGalleryProps {
   onRetrigger?: (id: string) => void
 }
 
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
-} from "@/components/ui/carousel"
-
 export function ImageGallery({ images = [] }: ImageGalleryProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [imageToDelete, setImageToDelete] = React.useState<Image | null>(null)
   const [isOpen, setIsOpen] = React.useState(false)
-  const [initialIndex, setInitialIndex] = React.useState(0)
-  const [api, setApi] = React.useState<CarouselApi>()
-  const [current, setCurrent] = React.useState(0)
+  const [currentIndex, setCurrentIndex] = React.useState(0)
 
   // Panel state
   const [isPanelOpen, setIsPanelOpen] = React.useState(false)
 
-  // Zoom state
-  const [zoomLevel, setZoomLevel] = React.useState(1)
-  const MAX_ZOOM = 3
-  const MIN_ZOOM = 0.5
-  const STEP = 0.25
-
   const downloadMutation = useDownloadImage()
 
   // Video prompts for badge indicator
-  const currentImage = images[current]
+  const currentImage = images[currentIndex]
   const { data: videoPrompts } = useVideoPrompts(currentImage?.id ?? null)
   const hasVideoPrompts = (videoPrompts?.length ?? 0) > 0
 
@@ -81,9 +64,6 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
         await deleteImageAction(image.id, image.storage_path)
     },
     onSuccess: (data, variables) => {
-        // Invalidate the collection list using the collection_id from the deleted image
-        // Assuming images have collection_id. If not, we might need to rely on parent re-rendering.
-        // But better to invalidate if we can.
         if (variables.collection_id) {
             queryClient.invalidateQueries({ queryKey: ['collection-images', variables.collection_id] })
         } else {
@@ -98,58 +78,51 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
     }
   })
 
-  // Update current index when api changes
-  React.useEffect(() => {
-    if (!api) {
-      return
-    }
-
-    setCurrent(api.selectedScrollSnap())
-
-    api.on("select", () => {
-      setCurrent(api.selectedScrollSnap())
-      setZoomLevel(1) // Reset zoom on slide change
-      setIsPanelOpen(false) // Close panel on slide change
-    })
-  }, [api])
-
-  // Scroll to initial index when opening
-  React.useEffect(() => {
-     if (isOpen && api) {
-       api.scrollTo(initialIndex, true)
-     }
-  }, [isOpen, api, initialIndex])
-
-
   const confirmDelete = () => {
     if (!imageToDelete) return
     deleteMutation.mutate(imageToDelete)
   }
 
-  const zoomIn = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setZoomLevel(prev => Math.min(prev + STEP, MAX_ZOOM))
-  }
-
-  const zoomOut = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setZoomLevel(prev => Math.max(prev - STEP, MIN_ZOOM))
-  }
-
-  const resetZoom = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setZoomLevel(1)
-  }
-
   const openGallery = (index: number) => {
       if (images[index]?.status === 'pending') return;
-      setInitialIndex(index)
+      setCurrentIndex(index)
       setIsOpen(true)
   }
 
   const handleDownload = (url: string, id: string) => {
       downloadMutation.mutate({ url, fileName: `image-${id}.png` })
   }
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+    setIsPanelOpen(false)
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+    setIsPanelOpen(false)
+  }
+
+  const handleThumbnailSelect = (index: number) => {
+    setCurrentIndex(index)
+    setIsPanelOpen(false)
+  }
+
+  // Keyboard navigation
+  React.useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        goToPrevious()
+      } else if (e.key === "ArrowRight") {
+        goToNext()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isOpen, images.length])
 
   if (images.length === 0) {
     return (
@@ -191,47 +164,45 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                 key={img.id}
                 initialImage={img}
                 onClick={() => openGallery(idx)}
-                showRetry={true} // Always allow retry for failed/stuck images
+                showRetry={true}
               />
         ))}
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="h-screen p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center pointer-events-none">
-             {/*
-                We use pointer-events-none on the container and pointer-events-auto on the content
-                to allow clicks to pass through to the backdrop for closing
-             */}
-             <div className="relative w-full h-full flex flex-col items-center justify-center p-4 md:p-8 pointer-events-auto">
-                 {/* Card Container for Image */}
-                 <div className="relative w-full h-full bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col">
+        <DialogContent className="h-screen w-screen max-w-none sm:max-w-none p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center pointer-events-none" showCloseButton={false}>
+             <div className="relative w-full h-full flex flex-col items-center justify-center p-2 md:p-4 pointer-events-auto">
+                 <div className="relative w-full h-full max-w-[98vw] md:max-w-[95vw] max-h-[98vh] md:max-h-[95vh] bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col">
 
-                     {/* Toolbar */}
+                     {/* Header: Download (left), Counter (center), Delete + Close (right) */}
                      <div className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 z-20 shrink-0">
-                         <div className="flex items-center gap-2">
-                             <span className="text-sm font-semibold text-white px-2">Bild #{current + 1} / {images.length}</span>
-                             <div className="h-4 w-px bg-white/10 mx-1"></div>
-                             <span className="text-xs text-gray-400 font-mono">{Math.round(zoomLevel * 100)}%</span>
-                         </div>
-                         <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={zoomOut} disabled={zoomLevel <= MIN_ZOOM}>
-                                <ZoomOut className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10 font-mono text-xs" onClick={resetZoom}>
-                                {Math.round(zoomLevel * 100)}%
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={zoomIn} disabled={zoomLevel >= MAX_ZOOM}>
-                                <ZoomIn className="w-4 h-4" />
-                            </Button>
-
-                             <div className="h-4 w-px bg-white/10 mx-2"></div>
-
+                         {/* Left: Download button */}
+                         <div className="flex items-center">
                              {currentImage && (
-                                <>
                                  <Button
-                                      variant="destructive"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-white hover:bg-white/10"
+                                    onClick={() => handleDownload(currentImage.url, currentImage.id)}
+                                    disabled={downloadMutation.isPending}
+                                >
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                             )}
+                         </div>
+
+                         {/* Center: Image counter */}
+                         <span className="text-sm font-medium text-white">
+                           {currentIndex + 1} / {images.length}
+                         </span>
+
+                         {/* Right: Delete + Close */}
+                         <div className="flex items-center gap-2">
+                             {currentImage && (
+                                 <Button
+                                      variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                                      className="h-8 w-8 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                                       onClick={(e) => {
                                           e.stopPropagation()
                                           setImageToDelete(currentImage)
@@ -240,23 +211,13 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                                   >
                                       <Trash2 className="h-4 w-4" />
                                   </Button>
-
-                                 <Button
-                                    variant="secondary"
-                                    size="icon"
-                                    className="h-8 w-8 bg-white/10 text-white hover:bg-white hover:text-black"
-                                    onClick={() => handleDownload(currentImage.url, currentImage.id)}
-                                >
-                                    <Download className="h-4 w-4" />
-                                </Button>
-                                </>
                              )}
 
                             <DialogClose asChild>
                               <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10 ml-2"
+                                  className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10"
                               >
                                   <X className="h-4 w-4" />
                               </Button>
@@ -264,7 +225,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                          </div>
                      </div>
 
-                     {/* Carousel Viewport with Panel Layout */}
+                     {/* Main content area with image and panel */}
                      <PreviewPanelLayout
                        isPanelOpen={isPanelOpen}
                        onPanelOpenChange={setIsPanelOpen}
@@ -273,35 +234,53 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                        }
                      >
                        <div className="flex-1 relative overflow-hidden bg-zinc-900">
-                          <Carousel setApi={setApi} className="w-full h-full">
-                              <CarouselContent className="h-full ml-0">
-                                  {images.map((img, idx) => (
-                                      <CarouselItem key={img.id} className="h-full pl-0 relative">
-                                          {/* Image Container with Zoom */}
-                                           <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-                                               <div
-                                                  className="relative w-full max-w-4xl aspect-square origin-center transition-transform duration-200"
-                                                  style={{
-                                                      transform: `scale(${zoomLevel})`,
-                                                  }}
-                                               >
-                                                  <ImagePreview
-                                                    image={img}
-                                                    hasVideoPrompts={hasVideoPrompts}
-                                                    onVideoPromptClick={() => setIsPanelOpen(true)}
-                                                    isSelected={isPanelOpen && idx === current}
-                                                    className="shadow-2xl"
-                                                  />
-                                               </div>
-                                           </div>
-                                      </CarouselItem>
-                                  ))}
-                              </CarouselContent>
-                              <CarouselPrevious className="left-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
-                              <CarouselNext className="right-4 bg-black/50 border-white/10 text-white hover:bg-black/80" />
-                          </Carousel>
+                          {/* Main image display */}
+                          <div className="w-full h-full flex items-center justify-center p-4">
+                            <div className="relative w-full max-w-4xl aspect-square">
+                              {currentImage && (
+                                <ImagePreview
+                                  image={currentImage}
+                                  hasVideoPrompts={hasVideoPrompts}
+                                  onVideoPromptClick={() => setIsPanelOpen(true)}
+                                  isSelected={isPanelOpen}
+                                  className="shadow-2xl"
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Navigation arrows on image */}
+                          {images.length > 1 && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-black/50 border border-white/10 text-white hover:bg-black/80 hover:text-white"
+                                onClick={goToPrevious}
+                              >
+                                <ChevronLeft className="h-6 w-6" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-black/50 border border-white/10 text-white hover:bg-black/80 hover:text-white"
+                                onClick={goToNext}
+                              >
+                                <ChevronRight className="h-6 w-6" />
+                              </Button>
+                            </>
+                          )}
                        </div>
                      </PreviewPanelLayout>
+
+                     {/* Thumbnail strip at bottom */}
+                     {images.length > 1 && (
+                       <ThumbnailStrip
+                         images={images}
+                         currentIndex={currentIndex}
+                         onSelect={handleThumbnailSelect}
+                       />
+                     )}
                  </div>
                  <DialogTitle className="sr-only">Bild Detailansicht</DialogTitle>
              </div>
