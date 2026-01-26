@@ -83,7 +83,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+1. **Restructure video prompt panel with variants and feedback** (ui) - 2026-01-26
+   - Variant navigation, prompt-first layout, feedback input, suggestions section
 
 ### Blockers/Concerns
 
