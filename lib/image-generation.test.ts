@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-  validateImageGenerationConfig, 
-  selectPose, 
-  refinePrompt, 
-  processReferenceImages,
-  generateImage 
+import {
+  validateImageGenerationConfig,
+  selectPose,
+  refinePrompt,
+  generateImage
 } from './image-generation';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // Mock dependencies
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(),
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: vi.fn(),
 }));
 
 const globalFetch = global.fetch;
@@ -18,14 +17,14 @@ global.fetch = vi.fn();
 
 describe('Image Generation Library', () => {
 
-  const mockGenAIModel = {
-     generateContent: vi.fn(),
-  };
+  const mockGenerateContent = vi.fn();
 
-  // Create a mock GenAI instance directly for passing to functions
+  // Create a mock GenAI instance with the new SDK structure (client.models.generateContent)
   const mockGenAIInstance = {
-      getGenerativeModel: vi.fn().mockReturnValue(mockGenAIModel)
-  } as unknown as GoogleGenerativeAI;
+      models: {
+        generateContent: mockGenerateContent
+      }
+  } as unknown as GoogleGenAI;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -84,19 +83,22 @@ describe('Image Generation Library', () => {
   });
 
   describe('refinePrompt', () => {
-    const config = { 
-        shotType: 'upper_body', // Changed to match schema enum
-        background: 'custom', 
-        customPrompt: 'smile', 
-        aspectRatio: '1:1', 
-        imageCount: [1], 
+    const config = {
+        shotType: 'upper_body',
+        background: 'white',
+        aspectRatio: '1:1',
+        imageCount: [1],
         referenceImages: [],
         collectionName: 'Test'
     } as any;
 
     it('should return refined prompt from model', async () => {
-      mockGenAIModel.generateContent.mockResolvedValue({
-        response: { text: () => "Refined Prompt" }
+      mockGenerateContent.mockResolvedValue({
+        candidates: [{
+          content: {
+            parts: [{ text: "Refined Prompt" }]
+          }
+        }]
       });
 
       const result = await refinePrompt(mockGenAIInstance, config, 'pose1');
@@ -104,35 +106,18 @@ describe('Image Generation Library', () => {
     });
 
     it('should return fallback prompt on error', async () => {
-      mockGenAIModel.generateContent.mockRejectedValue(new Error("API Error"));
-      
+      mockGenerateContent.mockRejectedValue(new Error("API Error"));
+
       const result = await refinePrompt(mockGenAIInstance, config, 'pose1');
       expect(result).toContain("upper_body photo, pose: pose1");
     });
   });
 
-  describe('processReferenceImages', () => {
-    it('should process valid image URLs', async () => {
-      const urls = ['http://example.com/image.jpg'];
-      const result = await processReferenceImages(urls);
-      
-      expect(fetch).toHaveBeenCalledWith('http://example.com/image.jpg');
-      expect(result).toHaveLength(1);
-      expect(result[0].inlineData).toBeDefined();
-    });
-
-
-
-    it('should prepend app url to relative paths', async () => {
-        vi.stubGlobal('process', { env: { NEXT_PUBLIC_APP_URL: 'http://localhost:3000' } });
-        await processReferenceImages(['/image.jpg']);
-        expect(fetch).toHaveBeenCalledWith('http://localhost:3000/image.jpg');
-    });
-  });
+  // processReferenceImages was removed - now using Gemini Files API in server actions
 
   describe('generateImage', () => {
     it('should return image data on success', async () => {
-      mockGenAIModel.generateContent.mockResolvedValue({
+      mockGenerateContent.mockResolvedValue({
         response: {
           candidates: [{
             content: {
@@ -147,25 +132,25 @@ describe('Image Generation Library', () => {
     });
 
     it('should accept reference images', async () => {
-      mockGenAIModel.generateContent.mockResolvedValue({
+      mockGenerateContent.mockResolvedValue({
           response: { candidates: [{ content: { parts: [{ inlineData: { data: 'd' } }] } }] }
       });
 
       const refImages = [{ inlineData: { data: 'ref', mimeType: 'image/png' } }];
       await generateImage(mockGenAIInstance, 'prompt', refImages as any);
 
-      expect(mockGenAIModel.generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      expect(mockGenerateContent).toHaveBeenCalledWith(expect.objectContaining({
           contents: [{ role: 'user', parts: expect.arrayContaining([expect.objectContaining({text: 'prompt'}), ...refImages]) }]
       }));
     });
 
     it('should throw if no candidates returned', async () => {
-      mockGenAIModel.generateContent.mockResolvedValue({ response: { candidates: [] } });
+      mockGenerateContent.mockResolvedValue({ response: { candidates: [] } });
       await expect(generateImage(mockGenAIInstance, 'prompt', [])).rejects.toThrow(/No candidates/);
     });
 
     it('should throw if model refuses (returns text)', async () => {
-      mockGenAIModel.generateContent.mockResolvedValue({
+      mockGenerateContent.mockResolvedValue({
         response: {
           candidates: [{
             content: {
@@ -178,12 +163,12 @@ describe('Image Generation Library', () => {
     });
     
     it('should rethrow generic errors', async () => {
-        mockGenAIModel.generateContent.mockRejectedValue(new Error("Generic Error"));
+        mockGenerateContent.mockRejectedValue(new Error("Generic Error"));
         await expect(generateImage(mockGenAIInstance, 'prompt', [])).rejects.toThrow("Generic Error");
     });
 
     it('should wrap 400/API errors', async () => {
-        mockGenAIModel.generateContent.mockRejectedValue(new Error("400 Bad Request"));
+        mockGenerateContent.mockRejectedValue(new Error("400 Bad Request"));
         await expect(generateImage(mockGenAIInstance, 'prompt', [])).rejects.toThrow(/Generation failed/);
     });
   });
