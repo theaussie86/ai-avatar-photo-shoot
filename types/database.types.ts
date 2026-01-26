@@ -52,7 +52,7 @@ export type Database = {
       }
       images: {
         Row: {
-          collection_id: string | null
+          collection_id: string
           created_at: string | null
           id: string
           metadata: Json | null
@@ -60,10 +60,9 @@ export type Database = {
           storage_path: string
           type: string
           url: string
-          user_id: string
         }
         Insert: {
-          collection_id?: string | null
+          collection_id: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -71,10 +70,9 @@ export type Database = {
           storage_path: string
           type: string
           url: string
-          user_id: string
         }
         Update: {
-          collection_id?: string | null
+          collection_id?: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -82,7 +80,6 @@ export type Database = {
           storage_path?: string
           type?: string
           url?: string
-          user_id?: string
         }
         Relationships: [
           {
@@ -117,6 +114,62 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      video_prompts: {
+        Row: {
+          camera_style: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          film_effects: string[] | null
+          id: string
+          image_id: string
+          is_primary: boolean | null
+          model_name: string
+          prompt_text: string
+          status: string
+          updated_at: string
+          user_instruction: string | null
+        }
+        Insert: {
+          camera_style?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          film_effects?: string[] | null
+          id?: string
+          image_id: string
+          is_primary?: boolean | null
+          model_name: string
+          prompt_text: string
+          status?: string
+          updated_at?: string
+          user_instruction?: string | null
+        }
+        Update: {
+          camera_style?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          film_effects?: string[] | null
+          id?: string
+          image_id?: string
+          is_primary?: boolean | null
+          model_name?: string
+          prompt_text?: string
+          status?: string
+          updated_at?: string
+          user_instruction?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_prompts_image_id_fkey"
+            columns: ["image_id"]
+            isOneToOne: false
+            referencedRelation: "images"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
