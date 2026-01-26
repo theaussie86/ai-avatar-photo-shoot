@@ -11,7 +11,7 @@ import { PromptLengthFeedback } from "@/components/avatar-creator/PromptLengthFe
 import { CameraStyleType, FilmEffectType } from "@/lib/video-prompt-schemas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Loader2, Copy, Check, ChevronLeft, ChevronRight } from "lucide-react"
+import { AlertCircle, Loader2, Copy, Check, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "sonner"
 
 interface VideoPromptPanelProps {
@@ -51,6 +51,9 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   // State for action suggestions and custom instruction
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
   const [customInstruction, setCustomInstruction] = useState("")
+
+  // State for collapsible new variant section in content state
+  const [isNewVariantExpanded, setIsNewVariantExpanded] = useState(false)
 
   // In content state, show the current variant's config (read-only display via metadata)
   // Config state is only used for new prompt creation (empty state and +Neu button)
@@ -221,12 +224,13 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
         {!isLoading && !error && currentPrompt && (
           <div className="space-y-4">
             {/* Variant navigation - only show when multiple variants */}
+            {/* Left arrow = older (higher index), Right arrow = newer (lower index) */}
             {prompts && prompts.length > 1 && (
               <div className="flex items-center justify-center gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10"
                   onClick={() => setVariantIndex(prev => prev + 1)}
                   disabled={effectiveVariantIndex === prompts.length - 1}
                 >
@@ -238,7 +242,7 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10"
                   onClick={() => setVariantIndex(prev => prev - 1)}
                   disabled={effectiveVariantIndex === 0}
                 >
@@ -262,12 +266,12 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
               <Button
                 onClick={handleCopy}
                 variant="outline"
-                className="flex-1 border-white/20 text-white hover:bg-white/5"
+                className="flex-1 bg-white/5 border-white/20 text-gray-200 hover:bg-white/10 hover:text-white hover:border-white/30"
               >
                 {isCopied ? (
                   <>
                     <Check className="h-4 w-4 mr-2 text-green-500" />
-                    Kopieren
+                    Kopiert!
                   </>
                 ) : (
                   <>
@@ -277,21 +281,73 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
                 )}
               </Button>
               <Button
-                onClick={handleGenerate}
-                disabled={generateMutation.isPending}
+                onClick={() => setIsNewVariantExpanded(!isNewVariantExpanded)}
                 variant="outline"
-                className="flex-1 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                className="flex-1 bg-purple-600/10 border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:border-purple-600 hover:text-white"
               >
-                {generateMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ...
-                  </>
+                + Neu
+                {isNewVariantExpanded ? (
+                  <ChevronUp className="h-4 w-4 ml-2" />
                 ) : (
-                  "+ Neu"
+                  <ChevronDown className="h-4 w-4 ml-2" />
                 )}
               </Button>
             </div>
+
+            {/* Collapsible new variant section */}
+            {isNewVariantExpanded && (
+              <div className="space-y-4 pt-2 border-t border-white/10">
+                {/* Action Suggestions */}
+                <ActionSuggestions
+                  selectedSuggestions={selectedSuggestions}
+                  onToggle={handleSuggestionToggle}
+                  aiSuggestions={aiSuggestions}
+                  isLoadingAI={isLoadingAI}
+                  disabled={generateMutation.isPending}
+                />
+
+                {/* Custom Instruction Textarea */}
+                <div>
+                  <label htmlFor="custom-instruction-variant" className="text-xs text-gray-500 mb-2 block">
+                    Eigene Anweisungen (optional)
+                  </label>
+                  <textarea
+                    id="custom-instruction-variant"
+                    value={customInstruction}
+                    onChange={(e) => setCustomInstruction(e.target.value)}
+                    disabled={generateMutation.isPending}
+                    placeholder="z.B. langsam nach rechts schauen..."
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 resize-none"
+                    rows={2}
+                  />
+                </div>
+
+                {/* Configuration */}
+                <VideoPromptConfig
+                  selectedCameraStyle={selectedCameraStyle}
+                  selectedFilmEffect={selectedFilmEffect}
+                  onCameraStyleChange={setSelectedCameraStyle}
+                  onFilmEffectChange={setSelectedFilmEffect}
+                  disabled={generateMutation.isPending}
+                />
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generateMutation.isPending}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {generateMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Generiere...
+                    </>
+                  ) : (
+                    "Variante erstellen"
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Metadata */}
             <div className="flex items-center gap-2 text-xs text-gray-500">

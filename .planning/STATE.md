@@ -98,7 +98,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None currently.
+None currently. (Todo "Restructure video prompt panel" completed 2026-01-26)
 
 ### Blockers/Concerns
 
