@@ -4,11 +4,11 @@ import { Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface VideoPromptButtonProps {
-  hasPrompts?: boolean
+  promptCount?: number
   onClick?: () => void
 }
 
-export function VideoPromptButton({ hasPrompts = false, onClick }: VideoPromptButtonProps) {
+export function VideoPromptButton({ promptCount = 0, onClick }: VideoPromptButtonProps) {
   return (
     <div className="absolute bottom-3 right-3">
       <Button
@@ -18,8 +18,13 @@ export function VideoPromptButton({ hasPrompts = false, onClick }: VideoPromptBu
         onClick={onClick}
       >
         <Video className="h-4 w-4" />
-        {hasPrompts && (
+        {promptCount === 1 && (
           <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-400 border-2 border-black animate-pulse" />
+        )}
+        {promptCount > 1 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-green-400 border-2 border-black flex items-center justify-center text-xs font-medium text-black">
+            {promptCount}
+          </span>
         )}
       </Button>
     </div>

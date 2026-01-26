@@ -11,7 +11,7 @@ interface ImagePreviewProps {
     url: string
     status?: string
   }
-  hasVideoPrompts?: boolean
+  videoPromptCount?: number
   onVideoPromptClick?: () => void
   isSelected?: boolean
   className?: string
@@ -19,7 +19,7 @@ interface ImagePreviewProps {
 
 export function ImagePreview({
   image,
-  hasVideoPrompts = false,
+  videoPromptCount = 0,
   onVideoPromptClick,
   isSelected = false,
   className,
@@ -71,7 +71,7 @@ export function ImagePreview({
       {/* Video prompt button - always visible */}
       {isLoaded && (
         <VideoPromptButton
-          hasPrompts={hasVideoPrompts}
+          promptCount={videoPromptCount}
           onClick={onVideoPromptClick}
         />
       )}

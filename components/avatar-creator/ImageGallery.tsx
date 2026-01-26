@@ -57,7 +57,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
   // Video prompts for badge indicator
   const currentImage = images[currentIndex]
   const { data: videoPrompts } = useVideoPrompts(currentImage?.id ?? null)
-  const hasVideoPrompts = (videoPrompts?.length ?? 0) > 0
+  const videoPromptCount = videoPrompts?.length ?? 0
 
   const deleteMutation = useMutation({
     mutationFn: async (image: Image) => {
@@ -240,7 +240,7 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
                               {currentImage && (
                                 <ImagePreview
                                   image={currentImage}
-                                  hasVideoPrompts={hasVideoPrompts}
+                                  videoPromptCount={videoPromptCount}
                                   onVideoPromptClick={() => setIsPanelOpen(true)}
                                   isSelected={isPanelOpen}
                                   className="shadow-2xl"
