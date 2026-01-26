@@ -40,10 +40,10 @@
 
 ### Varianten
 
-- [ ] **VAR-01**: Nutzer kann mehrere Prompt-Varianten pro Bild erstellen
-- [ ] **VAR-02**: Nutzer kann zwischen Varianten navigieren (1/2, 2/2, Pfeile)
-- [ ] **VAR-03**: Nutzer kann neue Variante erstellen ("+Neu"-Button)
-- [ ] **VAR-04**: Varianten-Anzahl wird im Panel-Header angezeigt (Badge)
+- [x] **VAR-01**: Nutzer kann mehrere Prompt-Varianten pro Bild erstellen
+- [x] **VAR-02**: Nutzer kann zwischen Varianten navigieren (1/2, 2/2, Pfeile)
+- [x] **VAR-03**: Nutzer kann neue Variante erstellen ("+Neu"-Button)
+- [x] **VAR-04**: Varianten-Anzahl wird im Panel-Header angezeigt (Badge)
 
 ### KI-Vorschläge
 
@@ -102,9 +102,9 @@
 | SAVE-03 | Phase 1 | Complete |
 | SAVE-04 | Phase 1 | Complete |
 | VAR-01 | Phase 1 | Complete |
-| VAR-02 | Phase 7 | Pending |
-| VAR-03 | Phase 7 | Pending |
-| VAR-04 | Phase 7 | Pending |
+| VAR-02 | Phase 7 | Complete |
+| VAR-03 | Phase 7 | Complete |
+| VAR-04 | Phase 7 | Complete |
 | SUGG-01 | Phase 8 | Pending |
 | SUGG-02 | Phase 8 | Pending |
 | SUGG-03 | Phase 8 | Pending |

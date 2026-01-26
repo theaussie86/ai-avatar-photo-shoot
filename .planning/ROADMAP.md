@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Panel UI Foundation** - Side panel component with open/close and basic display
 - [x] **Phase 5: Configuration Controls** - Camera style and film effect selection
 - [x] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
-- [ ] **Phase 7: Variants & Navigation** - Multiple prompts per image with navigation UI
+- [x] **Phase 7: Variants & Navigation** - Multiple prompts per image with navigation UI
 - [ ] **Phase 8: AI Suggestions & Quality Feedback** - Contextual suggestions and prompt length guidance
 
 ## Phase Details
@@ -136,7 +136,9 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md - Variant navigation UI with counter, arrows, and new variant button
+- [x] 07-01-PLAN.md - Variant navigation UI with counter, arrows, and new variant button
+
+**Completed Note**: Variant navigation with composite state pattern for imageId-scoped index. Header counter ("X von Y"), navigation arrows (older/newer), "+Neu" button for new variants. VideoPromptButton badge shows count when multiple variants exist.
 
 ### Phase 8: AI Suggestions & Quality Feedback
 **Goal**: Users receive AI-powered action suggestions and prompt quality guidance
@@ -166,7 +168,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 4. Panel UI Foundation | 1/1 | Complete | 2026-01-25 |
 | 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
 | 6. Copy & Save System | 1/1 | Complete | 2026-01-25 |
-| 7. Variants & Navigation | 0/1 | Not started | - |
+| 7. Variants & Navigation | 1/1 | Complete | 2026-01-26 |
 | 8. AI Suggestions & Quality Feedback | 0/TBD | Not started | - |
 
 ---
