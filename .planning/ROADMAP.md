@@ -150,10 +150,11 @@ Plans:
   3. User can click suggestion to populate instruction field
   4. Selected suggestions show visual active state
   5. Panel displays word count and length indicator (green: 50-150 words, red: >200 words)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD during planning
+- [ ] 08-01-PLAN.md - Fixed suggestions, instruction input, and prompt length feedback
+- [ ] 08-02-PLAN.md - AI-generated suggestions via Gemini image analysis
 
 ## Progress
 
@@ -169,7 +170,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
 | 6. Copy & Save System | 1/1 | Complete | 2026-01-25 |
 | 7. Variants & Navigation | 1/1 | Complete | 2026-01-26 |
-| 8. AI Suggestions & Quality Feedback | 0/TBD | Not started | - |
+| 8. AI Suggestions & Quality Feedback | 0/2 | In progress | - |
 
 ---
 *Roadmap created: 2026-01-25*
