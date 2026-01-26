@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
 import { useGenerateVideoPrompt } from "@/hooks/use-generate-video-prompt"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
@@ -18,30 +18,34 @@ interface VideoPromptPanelProps {
 export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
   const { data: prompts, isLoading, error } = useVideoPrompts(imageId)
   const generateMutation = useGenerateVideoPrompt()
-  const { copy, isCopied, isError: copyError } = useCopyToClipboard()
+  const { copy, isCopied } = useCopyToClipboard()
 
-  // Variant navigation state (0 = most recent)
-  const [variantIndex, setVariantIndex] = useState(0)
+  // Variant navigation state - stores {imageId, index} to auto-reset on imageId change
+  const [variantState, setVariantState] = useState<{imageId: string | null, index: number}>({
+    imageId: null,
+    index: 0
+  })
 
-  // Get current prompt based on variant index
-  const currentPrompt = prompts?.[variantIndex]
+  // Compute effective variant index - reset to 0 if imageId changed
+  const effectiveVariantIndex = variantState.imageId === imageId ? variantState.index : 0
 
-  // State for configuration selections (defaults from CONTEXT.md)
+  // Helper to update variant index
+  const setVariantIndex = (updater: (prev: number) => number) => {
+    setVariantState(prev => ({
+      imageId,
+      index: updater(prev.imageId === imageId ? prev.index : 0)
+    }))
+  }
+
+  // Get current prompt based on effective variant index
+  const currentPrompt = prompts?.[effectiveVariantIndex]
+
+  // State for configuration selections - used in empty state for new prompt creation
   const [selectedCameraStyle, setSelectedCameraStyle] = useState<CameraStyleType | null>("cinematic")
   const [selectedFilmEffect, setSelectedFilmEffect] = useState<FilmEffectType | null>("soft")
 
-  // Reset variantIndex when imageId changes
-  useEffect(() => {
-    setVariantIndex(0)
-  }, [imageId])
-
-  // Sync config from current prompt when navigating variants
-  useEffect(() => {
-    if (currentPrompt) {
-      setSelectedCameraStyle(currentPrompt.camera_style as CameraStyleType ?? "cinematic")
-      setSelectedFilmEffect(currentPrompt.film_effects?.[0] as FilmEffectType ?? "soft")
-    }
-  }, [currentPrompt])
+  // In content state, show the current variant's config (read-only display via metadata)
+  // Config state is only used for new prompt creation (empty state and +Neu button)
 
   // Generate handler
   const handleGenerate = () => {
@@ -88,7 +92,7 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
           <h3 className="text-lg font-semibold text-white">Video Prompt</h3>
           {prompts && prompts.length > 0 && (
             <span className="text-sm text-gray-400 ml-2">
-              {variantIndex + 1} von {prompts.length}
+              {effectiveVariantIndex + 1} von {prompts.length}
             </span>
           )}
         </div>
@@ -158,19 +162,19 @@ export function VideoPromptPanel({ imageId }: VideoPromptPanelProps) {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setVariantIndex(prev => prev + 1)}
-                  disabled={variantIndex === prompts.length - 1}
+                  disabled={effectiveVariantIndex === prompts.length - 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-gray-400">
-                  {variantIndex + 1} von {prompts.length}
+                  {effectiveVariantIndex + 1} von {prompts.length}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setVariantIndex(prev => prev - 1)}
-                  disabled={variantIndex === 0}
+                  disabled={effectiveVariantIndex === 0}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
