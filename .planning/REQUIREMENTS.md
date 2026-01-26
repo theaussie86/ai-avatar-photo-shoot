@@ -47,14 +47,14 @@
 
 ### KI-Vorschläge
 
-- [ ] **SUGG-01**: System zeigt KI-generierte Vorschläge basierend auf Bildanalyse
-- [ ] **SUGG-02**: System zeigt feste Vorschläge für häufige Aktionen (lächeln, winken, etc.)
-- [ ] **SUGG-03**: Nutzer kann Vorschlag auswählen (füllt Anweisungs-Feld)
-- [ ] **SUGG-04**: Ausgewählte Vorschläge werden visuell markiert
+- [x] **SUGG-01**: System zeigt KI-generierte Vorschläge basierend auf Bildanalyse
+- [x] **SUGG-02**: System zeigt feste Vorschläge für häufige Aktionen (lächeln, winken, etc.)
+- [x] **SUGG-03**: Nutzer kann Vorschlag auswählen (füllt Anweisungs-Feld)
+- [x] **SUGG-04**: Ausgewählte Vorschläge werden visuell markiert
 
 ### Feedback
 
-- [ ] **FEED-01**: System zeigt Längen-Feedback für generierten Prompt (optimal: 50-150 Wörter)
+- [x] **FEED-01**: System zeigt Längen-Feedback für generierten Prompt (optimal: 50-150 Wörter)
 
 ## v2 Requirements
 
@@ -105,11 +105,11 @@
 | VAR-02 | Phase 7 | Complete |
 | VAR-03 | Phase 7 | Complete |
 | VAR-04 | Phase 7 | Complete |
-| SUGG-01 | Phase 8 | Pending |
-| SUGG-02 | Phase 8 | Pending |
-| SUGG-03 | Phase 8 | Pending |
-| SUGG-04 | Phase 8 | Pending |
-| FEED-01 | Phase 8 | Pending |
+| SUGG-01 | Phase 8 | Complete |
+| SUGG-02 | Phase 8 | Complete |
+| SUGG-03 | Phase 8 | Complete |
+| SUGG-04 | Phase 8 | Complete |
+| FEED-01 | Phase 8 | Complete |
 
 **Coverage:**
 - v1 requirements: 27 total
@@ -118,4 +118,4 @@
 
 ---
 *Requirements defined: 2025-01-25*
-*Last updated: 2026-01-25 after roadmap creation*
+*Last updated: 2026-01-26 - Phase 8 complete*

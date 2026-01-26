@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Configuration Controls** - Camera style and film effect selection
 - [x] **Phase 6: Copy & Save System** - Clipboard copy with feedback and database persistence
 - [x] **Phase 7: Variants & Navigation** - Multiple prompts per image with navigation UI
-- [ ] **Phase 8: AI Suggestions & Quality Feedback** - Contextual suggestions and prompt length guidance
+- [x] **Phase 8: AI Suggestions & Quality Feedback** - Contextual suggestions and prompt length guidance
 
 ## Phase Details
 
@@ -153,8 +153,10 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md - Fixed suggestions, instruction input, and prompt length feedback
-- [ ] 08-02-PLAN.md - AI-generated suggestions via Gemini image analysis
+- [x] 08-01-PLAN.md - Fixed suggestions, instruction input, and prompt length feedback
+- [x] 08-02-PLAN.md - AI-generated suggestions via Gemini image analysis
+
+**Completed Note**: Fixed action suggestions (lächeln, winken, nicken, drehen) with chip-based toggle UI. AI-generated suggestions via Gemini image analysis with sparkle icon distinction. Instruction textarea for custom input. Word count feedback with color thresholds (green 50-150, yellow 151-200, red >200).
 
 ## Progress
 
@@ -170,7 +172,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 5. Configuration Controls | 1/1 | Complete | 2026-01-25 |
 | 6. Copy & Save System | 1/1 | Complete | 2026-01-25 |
 | 7. Variants & Navigation | 1/1 | Complete | 2026-01-26 |
-| 8. AI Suggestions & Quality Feedback | 0/2 | In progress | - |
+| 8. AI Suggestions & Quality Feedback | 2/2 | Complete | 2026-01-26 |
 
 ---
 *Roadmap created: 2026-01-25*
