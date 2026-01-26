@@ -188,7 +188,7 @@ describe('Image Actions', () => {
        const mockConfig = {
           aspectRatio: '1:1',
           referenceImages: [],
-          model: 'models/gemini-2.0-flash'
+          model: 'models/gemini-2.5-flash'
        };
 
        it('should update status to failed if Gemini API fails', async () => {
