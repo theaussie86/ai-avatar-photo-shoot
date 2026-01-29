@@ -48,6 +48,7 @@ All validated requirements logged in PROJECT.md Validated section.
 ### Pending Todos
 
 1. **Fix video prompt dialog not scrollable on mobile** (ui) — `.planning/todos/pending/2026-01-29-fix-video-prompt-dialog-mobile-scroll.md`
+2. **Remove subject appearance description from video prompt** (generation) — `.planning/todos/pending/2026-01-29-remove-subject-appearance-from-video-prompt.md`
 
 ### Blockers/Concerns
 
@@ -61,4 +62,4 @@ Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-29 — todo added*
+*Last updated: 2026-01-29 — todo added (2 pending)*
