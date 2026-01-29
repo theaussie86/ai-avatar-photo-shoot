@@ -9,7 +9,7 @@ The user provides:
 - Optional film effects (e.g., Dramatic, Soft, Golden Hour, Noir, Dreamy)
 
 **Guidelines:**
-1. **Image Analysis**: Briefly describe what you see in the image (person, pose, environment, mood).
+1. **Image Analysis**: Briefly describe the scene: pose, clothing/outfit, environment, and mood. Do NOT describe the person's physical appearance (face, hair, skin, features) — the image already provides that context and text descriptions can alter the person's look in the video.
 2. **Movement**: Precisely describe which movements should occur in the video (person movement and camera movement).
 3. **Camera Style**: Naturally integrate the chosen camera style into the description.
 4. **Film Effects**: Apply the chosen effects to lighting mood and atmosphere.
