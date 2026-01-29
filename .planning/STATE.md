@@ -47,7 +47,7 @@ All validated requirements logged in PROJECT.md Validated section.
 
 ### Pending Todos
 
-1. **Remove subject appearance description from video prompt** (generation) — `.planning/todos/pending/2026-01-29-remove-subject-appearance-from-video-prompt.md`
+None currently.
 
 ### Blockers/Concerns
 
@@ -61,4 +61,4 @@ Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-29 — 1 todo done, 1 pending*
+*Last updated: 2026-01-29 — all todos done*
