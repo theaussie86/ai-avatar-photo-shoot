@@ -60,7 +60,7 @@ function DrawerContent({
       <DialogPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          "bg-gray-900 border-t border-white/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed bottom-0 left-0 right-0 z-50 flex w-full max-h-[70vh] flex-col gap-4 rounded-t-xl p-6 shadow-lg duration-200 outline-none",
+          "bg-gray-900 border-t border-white/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed bottom-0 left-0 right-0 z-50 flex w-full max-h-[85dvh] flex-col gap-4 rounded-t-xl p-6 shadow-lg duration-200 outline-none",
           className
         )}
         {...props}

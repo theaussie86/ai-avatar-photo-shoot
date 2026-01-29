@@ -104,7 +104,9 @@ export function PreviewPanelLayout({
       {/* Drawer for mobile */}
       <Drawer open={isPanelOpen} onOpenChange={onPanelOpenChange}>
         <DrawerContent showCloseButton={true}>
-          {panelContent}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {panelContent}
+          </div>
         </DrawerContent>
       </Drawer>
     </div>
