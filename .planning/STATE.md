@@ -47,7 +47,7 @@ All validated requirements logged in PROJECT.md Validated section.
 
 ### Pending Todos
 
-1. **Persist background and custom prompt to local storage** (ui) — 2026-02-03
+None currently.
 
 ### Blockers/Concerns
 
