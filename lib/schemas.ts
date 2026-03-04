@@ -28,9 +28,16 @@ export type ShotType = typeof SHOT_TYPES[number];
 export const GENERATION_MODELS = [
   "gemini-2.5-flash-image",
   "gemini-3-pro-image-preview",
+  "gemini-3.1-flash-image-preview",
 ] as const;
 
 export type GenerationModel = typeof GENERATION_MODELS[number];
+
+export const MODEL_DISPLAY_NAMES: Record<GenerationModel, string> = {
+  "gemini-2.5-flash-image": "Nano Banana",
+  "gemini-3-pro-image-preview": "Nano Banana Pro",
+  "gemini-3.1-flash-image-preview": "Nano Banana 2",
+} as const;
 
 export const ImageGenerationSchema = z.object({
   imageCount: z.array(z.number().min(1).max(40)).length(1),
