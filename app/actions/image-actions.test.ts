@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateImagesAction, deleteCollectionAction, deleteImageAction, generateImageTask } from './image-actions';
+import { generateImagesAction, deleteCollectionAction, deleteImageAction } from './image-actions';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { GoogleGenAI } from '@google/genai';
@@ -17,10 +17,12 @@ vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn(),
 }));
 
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
-
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(),
+// Mock Trigger.dev SDK
+vi.mock('@trigger.dev/sdk/v3', () => ({
+  tasks: {
+    trigger: vi.fn().mockResolvedValue({ id: 'mock-run-id' }),
+    triggerAndWait: vi.fn().mockResolvedValue({ ok: true, output: {} }),
+  },
 }));
 
 vi.mock('@/lib/encryption', () => ({
@@ -184,99 +186,13 @@ describe('Image Actions', () => {
     });
   });
 
-  describe('generateImageTask', () => {
-       const mockConfig = {
-          aspectRatio: '1:1',
-          referenceImages: [],
-          model: 'models/gemini-2.5-flash'
-       };
-
-       it('should update status to failed if Gemini API fails', async () => {
-           const imageId = 'img-fail-gemini';
-           
-           const mockTaskSupabase = {
-               auth: { setSession: vi.fn(), getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u' } } }) },
-               from: vi.fn().mockImplementation((table) => {
-                   if (table === 'images') {
-                       return {
-                           select: vi.fn().mockReturnThis(),
-                           eq: vi.fn().mockReturnThis(),
-                           in: vi.fn().mockReturnThis(),
-                           single: vi.fn().mockResolvedValue({ data: { id: imageId, collection_id: 'col-1' }, error: null }),
-                           update: vi.fn().mockReturnThis()
-                       } as any;
-                   }
-                   return { select: vi.fn().mockReturnThis() } as any;
-               }),
-               storage: { from: vi.fn().mockReturnThis(), upload: vi.fn() }
-           };
-           (createSupabaseAdmin as any).mockReturnValue(mockTaskSupabase);
-
-           // Mock Gemini Failure
-           mockGenAIClient.models.generateContent.mockRejectedValue(new Error('Gemini Exploded'));
-
-           await generateImageTask(imageId, 'api-key', 'prompt', mockConfig as any);
-           
-           expect(mockTaskSupabase.from).toHaveBeenCalledWith('images');
-           // Should trigger failure update
-       });
-       
-       it('should handle reference images via Files API', async () => {
-           const imageId = 'img-ref';
-           // Update: The logic now expects these to be GEMINI URIs, not paths to be uploaded.
-           // And it DOES NOT upload them again. It just uses them.
-           // However, it does attempt to DELETE them at the end.
-           
-           // We'll mimic a Gemini URI
-           const geminiUri = 'https://generativelanguage.googleapis.com/v1beta/files/12345';
-           const configWithRef = { ...mockConfig, referenceImages: [geminiUri] };
-           
-             const mockTaskSupabase = {
-               auth: { setSession: vi.fn(), getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u' } } }) },
-               from: vi.fn().mockImplementation((table) => {
-                   if (table === 'images') {
-                       return {
-                           select: vi.fn().mockReturnThis(),
-                           eq: vi.fn().mockReturnThis(),
-                           in: vi.fn().mockReturnThis(),
-                           single: vi.fn().mockResolvedValue({ data: { id: imageId, collection_id: 'col-1' }, error: null }),
-                           update: vi.fn().mockReturnThis()
-                       } as any;
-                   }
-                   return { select: vi.fn().mockReturnThis() } as any;
-               }),
-               storage: { from: vi.fn().mockReturnThis(), upload: vi.fn().mockResolvedValue({ error: null }), getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'pub' } }) }
-           };
-            mockGenAIClient.files.get.mockResolvedValue({ state: 'ACTIVE', mimeType: 'image/jpeg' });
-           (createSupabaseAdmin as any).mockReturnValue(mockTaskSupabase);
-           
-           await generateImageTask(imageId, 'api-key', 'prompt', configWithRef as any);
-           
-           // EXPECTATION CHANGE: It does NOT upload anymore.
-           expect(mockGenAIClient.files.upload).not.toHaveBeenCalled(); 
-           expect(mockGenAIClient.models.generateContent).toHaveBeenCalled();
-           
-           // It attempts to delete them at the end (mockGenAIClient.files.delete)
-           // NOT CALLED because in the test mockTaskSupabase returns NO list of other images,
-           // but wait, mockTaskSupabase.from('images').select('metadata').in('status', ['pending', 'failed'])
-           // returns undefined or whatever. 
-           // In my code: const { data: activeImages, error: fetchError } = await supabase.from('images').select('metadata').in('status', ['pending', 'failed']);
-           // In current mockTaskSupabase setup, .in() returns 'this' but doesn't have a resolved value.
-           
-           // Let's refine the mock to return data
-           const chain = mockTaskSupabase.from('images');
-           chain.in.mockResolvedValue({ data: [], error: null }); // No other images need it
-           mockGenAIClient.files.delete.mockResolvedValue({}); // Promise for .catch()
-           
-           await generateImageTask(imageId, 'api-key', 'prompt', configWithRef as any);
-           expect(mockGenAIClient.files.delete).toHaveBeenCalledWith({ name: 'files/12345' });
-       });
-  });
+  // Note: generateImageTask tests removed - now a Trigger.dev task
+  // See src/trigger/generate-image.ts and its tests
 
   describe('deleteCollectionAction', () => {
-      it('should delete collection and its files', async () => {
+      it('should trigger background job for collection deletion', async () => {
           const collectionId = 'col-123';
-          
+
           // Mock ownership check
           const mockCollection = { id: collectionId };
           mockSupabase.from.mockImplementation((table) => {
@@ -286,25 +202,15 @@ describe('Image Actions', () => {
                 single: vi.fn().mockResolvedValue({ data: mockCollection }),
                 delete: vi.fn().mockReturnThis(),
               } as any;
-
-              if (table === 'images') {
-                  chain.delete = vi.fn().mockReturnThis();
-                  chain.eq = vi.fn().mockReturnThis();
-              }
               return chain;
           });
 
-          // Mock listing files
-          mockSupabase.storage.list.mockResolvedValue({ data: [{ name: 'img1.png' }, { name: 'img2.png' }], error: null });
-          mockSupabase.storage.remove.mockResolvedValue({ error: null });
-
           const result = await deleteCollectionAction(collectionId);
 
+          // Now triggers a background job instead of deleting directly
           expect(result.success).toBe(true);
-          expect(mockSupabase.storage.list).toHaveBeenCalledWith(collectionId);
-          expect(mockSupabase.storage.remove).toHaveBeenCalled();
-          expect(mockSupabase.from).toHaveBeenCalledWith('collections'); 
-          expect(mockSupabase.from).toHaveBeenCalledWith('images');
+          expect(result.runId).toBe('mock-run-id');
+          expect(mockSupabase.from).toHaveBeenCalledWith('collections');
       });
   });
 
@@ -390,28 +296,28 @@ describe('Image Actions', () => {
   });
 
   describe('deleteCollectionImagesAction', () => {
-      it('should delete all images in a collection', async () => {
+      it('should trigger background job for collection images deletion', async () => {
           const collectionId = 'col-123';
 
-          // Mock Ownership
+          // Mock ownership check
+          const mockCollection = { id: collectionId };
           mockSupabase.from.mockImplementation((table) => {
-               const chain = {
-                   select: vi.fn().mockReturnThis(),
-                   eq: vi.fn().mockReturnThis(),
-                   single: vi.fn().mockResolvedValue({ data: { id: collectionId } }),
-                   delete: vi.fn().mockReturnThis(),
-               } as any;
-               return chain;
+              const chain = {
+                select: vi.fn().mockReturnThis(),
+                eq: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ data: mockCollection }),
+                delete: vi.fn().mockReturnThis(),
+              } as any;
+              return chain;
           });
-          
-          mockSupabase.storage.list.mockResolvedValue({ data: [{ name: '1.png' }, { name: '2.png' }], error: null });
-          mockSupabase.storage.remove.mockResolvedValue({ error: null });
 
-          await import('./image-actions').then(mod => mod.deleteCollectionImagesAction(collectionId));
+          const { deleteCollectionImagesAction } = await import('./image-actions');
+          const result = await deleteCollectionImagesAction(collectionId);
 
-          expect(mockSupabase.storage.list).toHaveBeenCalledWith(collectionId);
-          expect(mockSupabase.storage.remove).toHaveBeenCalled(); // with paths
-          expect(mockSupabase.from).toHaveBeenCalledWith('images');
+          // Now triggers a background job instead of deleting directly
+          expect(result.success).toBe(true);
+          expect(result.runId).toBe('mock-run-id');
+          expect(mockSupabase.from).toHaveBeenCalledWith('collections');
     });
 });
 });

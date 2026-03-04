@@ -9,5 +9,10 @@ export function useVideoPrompts(imageId: string | null) {
     queryFn: () => getVideoPromptsForImageAction(imageId!),
     enabled: !!imageId,
     staleTime: 30_000, // 30 seconds - prompts don't change often
+    // Poll every 3 seconds if any prompt has status 'pending'
+    refetchInterval: (query) => {
+      const hasPending = query.state.data?.some((p: any) => p.status === 'pending');
+      return hasPending ? 3000 : false;
+    },
   })
 }
