@@ -277,6 +277,7 @@ export const generateImageTask = schemaTask({
         .from("images")
         .update({
           status: "failed",
+          error_code: errorInfo.code,
           error_message: errorInfo.message,
         })
         .eq("id", imageId);
