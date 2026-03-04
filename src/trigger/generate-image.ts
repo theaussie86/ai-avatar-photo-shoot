@@ -8,8 +8,9 @@ import { ImageGenerationSchema } from "@/lib/schemas";
 
 /**
  * Error codes for categorizing failures
+ * Exported for testing purposes
  */
-const ERROR_CODES = {
+export const ERROR_CODES = {
   API_KEY_INVALID: {
     code: 'API_KEY_INVALID',
     message: 'Gemini API key is invalid or expired'
@@ -40,8 +41,9 @@ type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 /**
  * Categorizes errors by pattern-matching error messages
+ * Exported for testing purposes
  */
-function categorizeError(error: unknown): ErrorCode {
+export function categorizeError(error: unknown): ErrorCode {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const lowerMessage = errorMessage.toLowerCase();
 
