@@ -11,6 +11,7 @@ import { ImagePreview } from "@/components/avatar-creator/ImagePreview"
 import { PreviewPanelLayout } from "@/components/avatar-creator/PreviewPanelLayout"
 import { VideoPromptPanel } from "@/components/avatar-creator/VideoPromptPanel"
 import { ThumbnailStrip } from "@/components/avatar-creator/ThumbnailStrip"
+import { CollectionProgress } from "@/components/avatar-creator/CollectionProgress"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDownloadImage } from "@/hooks/use-download-image"
 import { useVideoPrompts } from "@/hooks/use-video-prompts"
@@ -37,12 +38,13 @@ interface Image {
 }
 
 interface ImageGalleryProps {
+  collectionId: string
   images?: Image[]
   showRetry?: boolean
   onRetrigger?: (id: string) => void
 }
 
-export function ImageGallery({ images = [] }: ImageGalleryProps) {
+export function ImageGallery({ collectionId, images = [] }: ImageGalleryProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [imageToDelete, setImageToDelete] = React.useState<Image | null>(null)
@@ -157,6 +159,9 @@ export function ImageGallery({ images = [] }: ImageGalleryProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Collection progress banner */}
+      <CollectionProgress collectionId={collectionId} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {images.map((img, idx) => (

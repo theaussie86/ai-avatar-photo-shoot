@@ -2,11 +2,13 @@
 "use client"
 
 import * as React from "react"
-import { Download, Trash2, RefreshCw, Loader2 } from "lucide-react"
+import { Download, Trash2, RefreshCw, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { getImageAction, deleteImageAction, retriggerImageAction } from "@/app/actions/image-actions"
 import { useDownloadImage } from "@/hooks/use-download-image"
+import { useImageProgress } from "./hooks/useImageProgress"
+import { StageIndicator } from "./StageIndicator"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +32,10 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
   const downloadMutation = useDownloadImage()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
   const image = initialImage
-  
+
+  // Use the image progress hook to track stage and errors
+  const { stage, error } = useImageProgress(image.id)
+
   // Removed local polling state & useQuery
   // The parent component (CollectionDetailClient) is responsible for polling the list
   // which updates the 'initialImage' prop passed here.
@@ -129,11 +134,37 @@ export function ImageCard({ initialImage, onClick, showRetry }: ImageCardProps) 
             </div>
         ) : (
             <>
-                <img 
-                  src={image.url} 
-                  alt={`Generated`} 
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                <img
+                  src={image.url}
+                  alt={`Generated`}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
+
+                {/* Stage indicator badge - only show when not completed */}
+                {stage !== 'completed' && (
+                  <div className="absolute top-2 right-2">
+                    <StageIndicator stage={stage} />
+                  </div>
+                )}
+
+                {/* Error indicator with tooltip */}
+                {error && (
+                  <div
+                    className="absolute top-2 left-2 bg-red-100 rounded-full p-2 cursor-help"
+                    title={`${error.message}${
+                      error.code === 'API_KEY_INVALID'
+                        ? '\n\nCheck your API key in Settings'
+                        : error.code === 'QUOTA_EXCEEDED'
+                          ? '\n\nCheck your Gemini quota at console.cloud.google.com'
+                          : error.code === 'FILE_TIMEOUT'
+                            ? '\n\nTry using smaller reference images'
+                            : ''
+                    }`}
+                  >
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                )}
+
                 {/* Overlay on Hover */}
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3">
                   <div className="flex justify-between items-start">
