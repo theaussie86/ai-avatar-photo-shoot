@@ -11,7 +11,9 @@
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
     "test": "vitest run",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "trigger:dev": "npx trigger dev",
+    "trigger:deploy": "npx trigger deploy"
   },
   "dependencies": {
     "@google/genai": "^1.35.0",

@@ -6,12 +6,11 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { ConfigurationPanel } from "@/components/avatar-creator/ConfigurationPanel"
-import { 
-    generateImagesAction, 
-    deleteCollectionAction, 
-    getCollectionImagesAction, 
-    deleteCollectionImagesAction,
-    triggerImageGenerationAction 
+import {
+    generateImagesAction,
+    deleteCollectionAction,
+    getCollectionImagesAction,
+    deleteCollectionImagesAction
 } from "@/app/actions/image-actions"
 import { ImageGallery } from "@/components/avatar-creator/ImageGallery"
 import { ImageGenerationConfig } from "@/lib/schemas"
@@ -39,12 +38,10 @@ interface CollectionDetailClientProps {
 export function CollectionDetailClient({ collection, images: initialImages }: CollectionDetailClientProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
-  
-  // Track which images we have already triggered generation for in this session
-  // to avoid spamming the server if the status update is slow.
-  const triggeredImagesRef = React.useRef<Set<string>>(new Set());
 
   // React Query for Images List
+  // Jobs are now triggered automatically via Trigger.dev when images are created
+  // This query just polls to check for completion
   const { data: images } = useQuery({
       queryKey: ['collection-images', collection.id],
       queryFn: () => getCollectionImagesAction(collection.id),
@@ -55,30 +52,6 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
           return hasPending ? 3000 : false;
       }
   })
-
-  // Trigger Action for individual images
-  const triggerMutation = useMutation({
-      mutationFn: async (imageId: string) => {
-          console.log("Triggering generation for:", imageId);
-          return await triggerImageGenerationAction(imageId);
-      },
-      onError: (err, imageId) => {
-          console.error(`Failed to trigger image ${imageId}:`, err);
-          // Optional: toast error? Might be too noisy if many fail.
-      }
-  });
-
-  // Effect: Watch for "pending" images and trigger them if not already triggered
-  React.useEffect(() => {
-      if (!images) return;
-
-      images.forEach((img: any) => {
-          if (img.status === 'pending' && !triggeredImagesRef.current.has(img.id)) {
-              triggeredImagesRef.current.add(img.id);
-              triggerMutation.mutate(img.id);
-          }
-      });
-  }, [images, triggerMutation]);
 
 
   // Image generation mutation (Initial creation)
