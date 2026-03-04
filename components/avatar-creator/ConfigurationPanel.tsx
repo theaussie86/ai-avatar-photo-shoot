@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 // We import types and schema. Zod schema is used with zodResolver
-import { ImageGenerationSchema, type ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
+import { ImageGenerationSchema, type ImageGenerationConfig, ASPECT_RATIOS, SHOT_TYPES, GENERATION_MODELS, MODEL_DISPLAY_NAMES, AspectRatioType, ShotType, GenerationModel } from "@/lib/schemas"
 import { createClient } from "@/lib/supabase/client"
 import { useMutation } from "@tanstack/react-query"
 import { v4 as uuidv4 } from 'uuid';
@@ -539,7 +539,7 @@ export function ConfigurationPanel({
                 <SelectContent>
                     {GENERATION_MODELS.map((m) => (
                     <SelectItem key={m} value={m}>
-                        {m.split('/').pop()}
+                        {MODEL_DISPLAY_NAMES[m]}
                     </SelectItem>
                     ))}
                 </SelectContent>
