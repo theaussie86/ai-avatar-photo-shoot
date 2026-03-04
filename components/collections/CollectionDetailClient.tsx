@@ -270,8 +270,9 @@ export function CollectionDetailClient({ collection, images: initialImages }: Co
         {/* Existing Images Grid */}
         <div className="border-t border-white/10 pt-8">
             <h2 className="text-xl font-semibold mb-6">Generierte Bilder</h2>
-            <ImageGallery 
-                images={images || []} 
+            <ImageGallery
+                collectionId={collection.id}
+                images={images || []}
             />
         </div>
 

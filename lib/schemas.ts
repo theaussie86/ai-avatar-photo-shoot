@@ -59,3 +59,22 @@ export const ApiKeySchema = z.object({
 
 export type ImageGenerationConfig = z.infer<typeof ImageGenerationSchema>;
 export type ApiKeyConfig = z.infer<typeof ApiKeySchema>;
+
+// Image generation stages
+export const ImageStageSchema = z.enum([
+  'queued',
+  'processing',
+  'generating',
+  'completed',
+  'failed'
+]);
+
+// Error information
+export const ErrorInfoSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+});
+
+// Export types
+export type ImageStage = z.infer<typeof ImageStageSchema>;
+export type ErrorInfo = z.infer<typeof ErrorInfoSchema>;

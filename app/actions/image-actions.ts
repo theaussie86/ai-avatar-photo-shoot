@@ -227,6 +227,13 @@ export async function generateImagesAction(data: ImageGenerationConfig) {
             config: record.config,
           }
         );
+
+        // Store the runId in the database
+        await supabase
+          .from('images')
+          .update({ run_id: handle.id })
+          .eq('id', record.imageId);
+
         return { imageId: record.imageId, runId: handle.id };
       });
 
@@ -425,6 +432,12 @@ export async function retriggerImageAction(imageId: string) {
     );
 
     console.log(`[Retrigger] Triggered job: ${handle.id}`);
+
+    // Store the runId in the database
+    await supabase
+      .from('images')
+      .update({ run_id: handle.id })
+      .eq('id', imageId);
 
     return { success: true, runId: handle.id };
 }

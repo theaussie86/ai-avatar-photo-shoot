@@ -23,6 +23,29 @@ Users can choose between the following models for image generation:
 - **gemini-2.5-flash-image** (Default): Fast and efficient.
 - **gemini-3-pro-image-preview**: High fidelity, premium quality.
 
+## 📊 Progress Tracking
+
+The app provides real-time progress updates during image generation:
+
+- **Stage indicators**: Shows current stage (Queued → Processing → Generating → Complete)
+- **Collection progress**: Banner showing overall generation progress
+- **Enhanced errors**: Specific error messages with actionable guidance
+
+### How it works
+
+- Progress state is stored in Trigger.dev task metadata
+- Frontend polls every 3 seconds for updates
+- Database only stores final results (completed/failed)
+- API route `/api/trigger/runs/[runId]` fetches real-time metadata
+
+### Error codes
+
+- `API_KEY_INVALID`: Check your Gemini API key in Settings
+- `QUOTA_EXCEEDED`: Check your quota at console.cloud.google.com
+- `FILE_TIMEOUT`: Try using smaller reference images
+- `GENERATION_FAILED`: Image generation failed, retry the task
+- `UPLOAD_FAILED`: Failed to save image, check storage permissions
+
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
