@@ -54,8 +54,11 @@ export type Database = {
         Row: {
           collection_id: string
           created_at: string | null
+          error_code: string | null
+          error_message: string | null
           id: string
           metadata: Json | null
+          run_id: string | null
           status: string
           storage_path: string
           type: string
@@ -64,8 +67,11 @@ export type Database = {
         Insert: {
           collection_id: string
           created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
           id?: string
           metadata?: Json | null
+          run_id?: string | null
           status?: string
           storage_path: string
           type: string
@@ -74,8 +80,11 @@ export type Database = {
         Update: {
           collection_id?: string
           created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
           id?: string
           metadata?: Json | null
+          run_id?: string | null
           status?: string
           storage_path?: string
           type?: string
