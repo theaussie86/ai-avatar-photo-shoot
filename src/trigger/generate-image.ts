@@ -1,10 +1,68 @@
-import { schemaTask, logger } from "@trigger.dev/sdk/v3";
+import { schemaTask, logger, metadata } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { createSupabaseAdmin, verifyImageOwnership } from "./utils/supabase-admin";
 import { extractResourceName, waitForFileActive } from "./utils/gemini-helpers";
 import { decrypt } from "@/lib/encryption";
 import { ImageGenerationSchema } from "@/lib/schemas";
+
+/**
+ * Error codes for categorizing failures
+ */
+const ERROR_CODES = {
+  API_KEY_INVALID: {
+    code: 'API_KEY_INVALID',
+    message: 'Gemini API key is invalid or expired'
+  },
+  QUOTA_EXCEEDED: {
+    code: 'QUOTA_EXCEEDED',
+    message: 'API quota exceeded. Try again later.'
+  },
+  FILE_TIMEOUT: {
+    code: 'FILE_TIMEOUT',
+    message: 'Reference images took too long to process'
+  },
+  GENERATION_FAILED: {
+    code: 'GENERATION_FAILED',
+    message: 'Image generation failed'
+  },
+  UPLOAD_FAILED: {
+    code: 'UPLOAD_FAILED',
+    message: 'Failed to save generated image'
+  },
+  UNKNOWN: {
+    code: 'UNKNOWN',
+    message: 'An unexpected error occurred'
+  },
+} as const;
+
+type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+
+/**
+ * Categorizes errors by pattern-matching error messages
+ */
+function categorizeError(error: unknown): ErrorCode {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const lowerMessage = errorMessage.toLowerCase();
+
+  if (lowerMessage.includes('api key') || lowerMessage.includes('invalid_api_key')) {
+    return ERROR_CODES.API_KEY_INVALID;
+  }
+  if (lowerMessage.includes('quota') || lowerMessage.includes('resource_exhausted')) {
+    return ERROR_CODES.QUOTA_EXCEEDED;
+  }
+  if (lowerMessage.includes('timeout') || (lowerMessage.includes('file') && lowerMessage.includes('processing'))) {
+    return ERROR_CODES.FILE_TIMEOUT;
+  }
+  if (lowerMessage.includes('upload') || lowerMessage.includes('storage')) {
+    return ERROR_CODES.UPLOAD_FAILED;
+  }
+  if (lowerMessage.includes('generation') || lowerMessage.includes('generate')) {
+    return ERROR_CODES.GENERATION_FAILED;
+  }
+
+  return ERROR_CODES.UNKNOWN;
+}
 
 /**
  * Payload schema for generate-image task.
@@ -48,28 +106,47 @@ export const generateImageTask = schemaTask({
 
     logger.log(`[Task ${taskId}] Starting image generation...`);
 
+    // Stage 1: Queued
+    await metadata.save({
+      stage: 'queued',
+      imageId
+    });
+
     // 1. Create Supabase admin client
     const supabase = createSupabaseAdmin();
 
-    // 2. Decrypt API key
-    const apiKey = decrypt(encryptedApiKey);
-    if (!apiKey) {
-      throw new Error("Failed to decrypt API key");
-    }
-
-    // 3. Verify ownership (since we bypass RLS)
-    const hasAccess = await verifyImageOwnership(supabase, imageId, userId);
-    if (!hasAccess) {
-      throw new Error("Access denied: User does not own this image");
-    }
-
-    // 4. Initialize Gemini client
-    const client = new GoogleGenAI({ apiKey });
-
     const uploadedFiles: { name: string; uri: string }[] = [];
     const referenceImageUris = config.referenceImages || [];
+    let client: GoogleGenAI | null = null;
 
     try {
+      // Stage 2: Processing (decrypt, verify)
+      await metadata.save({
+        stage: 'processing',
+        imageId
+      });
+
+      // 2. Decrypt API key
+      const apiKey = decrypt(encryptedApiKey);
+      if (!apiKey) {
+        throw new Error("Failed to decrypt API key");
+      }
+
+      // 3. Verify ownership (since we bypass RLS)
+      const hasAccess = await verifyImageOwnership(supabase, imageId, userId);
+      if (!hasAccess) {
+        throw new Error("Access denied: User does not own this image");
+      }
+
+      // 4. Initialize Gemini client
+      client = new GoogleGenAI({ apiKey });
+
+      // Stage 3: Generating
+      await metadata.save({
+        stage: 'generating',
+        imageId
+      });
+
       // 5. Prepare Reference Images using already uploaded Gemini Files
       const parts: any[] = [];
       let explicitRefInstruction = "";
@@ -186,16 +263,28 @@ export const generateImageTask = schemaTask({
     } catch (err: any) {
       logger.error(`[Task ${taskId}] FAILED:`, { error: err });
 
-      // Update status to 'failed'
+      // Categorize and store error
+      const errorInfo = categorizeError(err);
+
+      await metadata.save({
+        stage: 'failed',
+        imageId,
+        error: errorInfo
+      });
+
+      // Update DB with error
       await supabase
         .from("images")
-        .update({ status: "failed" })
+        .update({
+          status: "failed",
+          error_message: errorInfo.message,
+        })
         .eq("id", imageId);
 
       throw err; // Re-throw for retry
     } finally {
       // Cleanup Gemini files if no other pending/failed images need them
-      if (uploadedFiles.length > 0) {
+      if (uploadedFiles.length > 0 && client) {
         try {
           const { data: activeImages } = await supabase
             .from("images")
