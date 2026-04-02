@@ -175,9 +175,9 @@ export function ImageGallery({ collectionId, images = [] }: ImageGalleryProps) {
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="h-screen w-screen max-w-none sm:max-w-none p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center pointer-events-none" showCloseButton={false}>
+        <DialogContent className="h-dvh w-screen max-w-none sm:max-w-none p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center pointer-events-none" showCloseButton={false}>
              <div className="relative w-full h-full flex flex-col items-center justify-center p-2 md:p-4 pointer-events-auto">
-                 <div className="relative w-full h-full max-w-[98vw] md:max-w-[95vw] max-h-[98vh] md:max-h-[95vh] bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col">
+                 <div className="relative w-full h-full max-w-[98vw] md:max-w-[95vw] max-h-[98dvh] md:max-h-[95dvh] bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col">
 
                      {/* Header: Download (left), Counter (center), Delete + Close (right) */}
                      <div className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 z-20 shrink-0">
